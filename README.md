@@ -3,7 +3,7 @@ I still did not finish the awesome Pikuma's course [3D Computer Graphics Program
 
 So here we are, creating another software rasterizer just for fun.
 
-I managed to render texured triangles in 3D, loaded from an obj and a png files.
+I managed to render textured triangles in 3D, loaded from an obj and a png files.
 
 Stuff I would like to code:
 - Optimize the code as much as I can. I'm using Optik to profile and following the recomendations from the [The Rust Performance Book](https://nnethercote.github.io/perf-book/). I would like to test Cargo's flamegraph and Valgrind
