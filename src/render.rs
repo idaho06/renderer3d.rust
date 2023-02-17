@@ -1,27 +1,28 @@
 use byte_slice_cast::{AsMutSliceOf, AsSliceOf};
 use glam::{Vec2, Vec3, Vec4};
 use sdl2::pixels::Color;
+use smallvec::{smallvec, SmallVec};
 
 use crate::triangle::{Triangle, TriangleScreenPixel};
 
 pub struct Render {
-    corner_segments_x: Vec<(f32, f32)>,
+    corner_segments_x: SmallVec<[(f32, f32); 2048]>,
     //short_segment2_x: Vec<(f32, f32)>, 
-    straight_segment_x: Vec<(f32, f32)>,
-    corner_segments_w: Vec<(f32, f32)>,
+    straight_segment_x: SmallVec<[(f32, f32); 2048]>,
+    corner_segments_w: SmallVec<[(f32, f32); 2048]>,
     //short_segment2_w: Vec<(f32, f32)>, 
-    straight_segment_w: Vec<(f32, f32)>,
-    corner_segments_u: Vec<(f32, f32)>,
+    straight_segment_w: SmallVec<[(f32, f32); 2048]>,
+    corner_segments_u: SmallVec<[(f32, f32); 2048]>,
     //short_segment2_u: Vec<(f32, f32)>, 
-    straight_segment_u: Vec<(f32, f32)>,
-    corner_segments_v: Vec<(f32, f32)>,
+    straight_segment_u: SmallVec<[(f32, f32); 2048]>,
+    corner_segments_v: SmallVec<[(f32, f32); 2048]>,
     //short_segment2_v: Vec<(f32, f32)>, 
-    straight_segment_v: Vec<(f32, f32)>,
+    straight_segment_v: SmallVec<[(f32, f32); 2048]>,
     //corner_segments: Vec<TriangleScreenPixel>,
     //straight_segment: Vec<TriangleScreenPixel>,
-    horizontal_segment_w: Vec<(f32, f32)>,
-    horizontal_segment_u: Vec<(f32, f32)>,
-    horizontal_segment_v: Vec<(f32, f32)>,
+    horizontal_segment_w: SmallVec<[(f32, f32); 2048]>,
+    horizontal_segment_u: SmallVec<[(f32, f32); 2048]>,
+    horizontal_segment_v: SmallVec<[(f32, f32); 2048]>,
     //horizontal_segment: Vec<TriangleScreenPixel>,
 }
 
@@ -30,23 +31,23 @@ impl Render {
         let cb_height = cb_height as usize;
         let cb_width = cb_width as usize;
         Self {
-            corner_segments_x: vec![(0.0_f32, 0.0_f32); cb_height],
+            corner_segments_x: smallvec![(0.0_f32, 0.0_f32); cb_height],
             //short_segment2_x: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_x: vec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_w: vec![(0.0_f32, 0.0_f32); cb_height],
+            straight_segment_x: smallvec![(0.0_f32, 0.0_f32); cb_height],
+            corner_segments_w: smallvec![(0.0_f32, 0.0_f32); cb_height],
             //short_segment2_w: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_w: vec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_u: vec![(0.0_f32, 0.0_f32); cb_height],
+            straight_segment_w: smallvec![(0.0_f32, 0.0_f32); cb_height],
+            corner_segments_u: smallvec![(0.0_f32, 0.0_f32); cb_height],
             //short_segment2_u: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_u: vec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_v: vec![(0.0_f32, 0.0_f32); cb_height],
+            straight_segment_u: smallvec![(0.0_f32, 0.0_f32); cb_height],
+            corner_segments_v: smallvec![(0.0_f32, 0.0_f32); cb_height],
             //short_segment2_v: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_v: vec![(0.0_f32, 0.0_f32); cb_height],
+            straight_segment_v: smallvec![(0.0_f32, 0.0_f32); cb_height],
             //corner_segments: vec![TriangleScreenPixel::default(); cb_height],
             //straight_segment: vec![TriangleScreenPixel::default(); cb_height],
-            horizontal_segment_w: vec![(0.0_f32, 0.0_f32); cb_width],
-            horizontal_segment_u: vec![(0.0_f32, 0.0_f32); cb_width],
-            horizontal_segment_v: vec![(0.0_f32, 0.0_f32); cb_width],
+            horizontal_segment_w: smallvec![(0.0_f32, 0.0_f32); cb_width],
+            horizontal_segment_u: smallvec![(0.0_f32, 0.0_f32); cb_width],
+            horizontal_segment_v: smallvec![(0.0_f32, 0.0_f32); cb_width],
             //horizontal_segment: vec![TriangleScreenPixel::default(); cb_width],
         }
     }
@@ -300,7 +301,7 @@ fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> 
 
 // same as map_interpolate_float but using a mut Vec<f32, f32> instead of returning a new Vec
 #[inline(always)]
-fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut Vec<(f32, f32)>) {
+fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 2048]>) {
     //optick::event!();
     if i0 == i1 {
         values.push((i0, d0));
