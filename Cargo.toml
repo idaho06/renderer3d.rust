@@ -1,0 +1,27 @@
+[package]
+name = "render3d"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+byte-slice-cast = "1.2.2" # for converting slices from u8 to u32
+rustc-hash = "1.1.0"      # fast hashing
+#rand = "0.8.4"            # random numbers
+fastrand = "1.8.0" # fast random numbers
+glam = "0.22.0"    # algebra library
+
+[dependencies.image]
+version = "0.24.5"
+default-features = false
+features = ["png"]
+
+[dependencies.optick]
+version = "1.3.4"
+#default-features = false
+features = []
+
+[dependencies.sdl2]
+version = "0.35.2"
+features = ["bundled", "unsafe_textures"] # video, keyboard events
