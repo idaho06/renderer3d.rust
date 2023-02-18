@@ -18,9 +18,9 @@ impl Render {
         let cb_height = cb_height as usize;
         let cb_width = cb_width as usize;
         Self {
-            corner_segments_y_xwuv: SmallVec::new(),
-            straight_segment_y_xwuv: SmallVec::new(),
-            horizontal_segment_x_ywuv: SmallVec::new(),
+            corner_segments_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
+            straight_segment_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
+            horizontal_segment_x_ywuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_width/2],
         }
     }
 
@@ -36,7 +36,7 @@ impl Render {
         t_height: u32,
         z_buffer: &mut [f32]
         ) {
-            optick::event!();
+            //optick::event!();
             let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
             // reorder the triangle vertices by the y coordinate
             let triangle3d = triangle3d.reorder_vertices_by_y();
