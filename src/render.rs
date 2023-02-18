@@ -307,8 +307,8 @@ fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut Sm
         values.push((i0, d0));
         return;
     }
-    let distance = (i1 - i0).abs();
-    values.reserve(distance as usize);
+    //let distance = (i1 - i0).abs();
+    //values.reserve(distance as usize);
     let mut a: f32 = (d1 - d0) / (i1 - i0);
     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
     if step == -1.0 {
