@@ -5,25 +5,12 @@ use smallvec::{smallvec, SmallVec};
 
 use crate::triangle::{Triangle, TriangleScreenPixel};
 
+//const ARRAY_SIZE: usize = 1024;
+
 pub struct Render {
-    corner_segments_x: SmallVec<[(f32, f32); 2048]>,
-    //short_segment2_x: Vec<(f32, f32)>, 
-    straight_segment_x: SmallVec<[(f32, f32); 2048]>,
-    corner_segments_w: SmallVec<[(f32, f32); 2048]>,
-    //short_segment2_w: Vec<(f32, f32)>, 
-    straight_segment_w: SmallVec<[(f32, f32); 2048]>,
-    corner_segments_u: SmallVec<[(f32, f32); 2048]>,
-    //short_segment2_u: Vec<(f32, f32)>, 
-    straight_segment_u: SmallVec<[(f32, f32); 2048]>,
-    corner_segments_v: SmallVec<[(f32, f32); 2048]>,
-    //short_segment2_v: Vec<(f32, f32)>, 
-    straight_segment_v: SmallVec<[(f32, f32); 2048]>,
-    //corner_segments: Vec<TriangleScreenPixel>,
-    //straight_segment: Vec<TriangleScreenPixel>,
-    horizontal_segment_w: SmallVec<[(f32, f32); 2048]>,
-    horizontal_segment_u: SmallVec<[(f32, f32); 2048]>,
-    horizontal_segment_v: SmallVec<[(f32, f32); 2048]>,
-    //horizontal_segment: Vec<TriangleScreenPixel>,
+    corner_segments_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
+    straight_segment_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
+    horizontal_segment_x_ywuv: SmallVec<[(f32, Vec4); 1024]>,
 }
 
 impl Render {
@@ -31,24 +18,9 @@ impl Render {
         let cb_height = cb_height as usize;
         let cb_width = cb_width as usize;
         Self {
-            corner_segments_x: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            //short_segment2_x: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_x: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_w: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            //short_segment2_w: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_w: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_u: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            //short_segment2_u: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_u: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            corner_segments_v: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            //short_segment2_v: vec![(0.0_f32, 0.0_f32); cb_height],
-            straight_segment_v: smallvec![(0.0_f32, 0.0_f32); cb_height],
-            //corner_segments: vec![TriangleScreenPixel::default(); cb_height],
-            //straight_segment: vec![TriangleScreenPixel::default(); cb_height],
-            horizontal_segment_w: smallvec![(0.0_f32, 0.0_f32); cb_width],
-            horizontal_segment_u: smallvec![(0.0_f32, 0.0_f32); cb_width],
-            horizontal_segment_v: smallvec![(0.0_f32, 0.0_f32); cb_width],
-            //horizontal_segment: vec![TriangleScreenPixel::default(); cb_width],
+            corner_segments_y_xwuv: SmallVec::new(),
+            straight_segment_y_xwuv: SmallVec::new(),
+            horizontal_segment_x_ywuv: SmallVec::new(),
         }
     }
 
@@ -83,90 +55,42 @@ impl Render {
             let v0 = Vec4::new(v0.x.round(), v0.y.round(), v0.z, v0.w);
             let v1 = Vec4::new(v1.x.round(), v1.y.round(), v1.z, v1.w);
             let v2 = Vec4::new(v2.x.round(), v2.y.round(), v2.z, v2.w);
-        
-            // invert v coordinate
-            // let uv0 = Vec2::new(uv0.x, 1.0 - uv0.y);
-            // let uv1 = Vec2::new(uv1.x, 1.0 - uv1.y);
-            // let uv2 = Vec2::new(uv2.x, 1.0 - uv2.y);
-            self.corner_segments_x.clear();
-            self.straight_segment_x.clear();
-            map_interpolate_float_mut(v0.y, v0.x, v1.y, v1.x, &mut self.corner_segments_x);
-            self.corner_segments_x.pop();            
-            map_interpolate_float_mut(v1.y, v1.x, v2.y, v2.x, &mut self.corner_segments_x);
-            map_interpolate_float_mut(v0.y, v0.x, v2.y, v2.x, &mut self.straight_segment_x);
-        
-            // round x,y values because they represent pixel coordinates
-            self.corner_segments_x.iter_mut().for_each(|(y, x)| {
-                *x = x.round();
-                *y = y.round();
-            }
-            );
-            self.straight_segment_x.iter_mut().for_each(|(y, x)| {
-                *x = x.round();
-                *y = y.round();
-            }
-            );
-        
-        
-            // now we calculate same segment for the reciprocal of the z in camera space (w) coordinate
-            // to calculate the z coordinate of the interpolated points
-            self.corner_segments_w.clear();
-            self.straight_segment_w.clear();
-            map_interpolate_float_mut(v0.y, 1.0 / v0.w, v1.y, 1.0 / v1.w, &mut self.corner_segments_w);
-            self.corner_segments_w.pop();
-            map_interpolate_float_mut(v1.y, 1.0 / v1.w, v2.y, 1.0 / v2.w, &mut self.corner_segments_w);
-            map_interpolate_float_mut(v0.y, 1.0 / v0.w, v2.y, 1.0 / v2.w, &mut self.straight_segment_w);
-        
-            // now we calculate same segments for the u divided by the z in camera space (w) coordinate
-            // to calculate the u coordinate of the interpolated points
-            self.corner_segments_u.clear();
-            self.straight_segment_u.clear();
-            map_interpolate_float_mut(v0.y, uv0.x / v0.w, v1.y, uv1.x / v1.w, &mut self.corner_segments_u);
-            self.corner_segments_u.pop();
-            map_interpolate_float_mut(v1.y, uv1.x / v1.w, v2.y, uv2.x / v2.w, &mut self.corner_segments_u);
-            map_interpolate_float_mut(v0.y, uv0.x / v0.w, v2.y, uv2.x / v2.w, &mut self.straight_segment_u);
-        
-            // now we calculate same segments for the v divided by the z in camera space (w) coordinate
-            // to calculate the v coordinate of the interpolated points
-            self.corner_segments_v.clear();
-            self.straight_segment_v.clear();
-            map_interpolate_float_mut(v0.y, uv0.y / v0.w, v1.y, uv1.y / v1.w, &mut self.corner_segments_v);
-            self.corner_segments_v.pop();
-            map_interpolate_float_mut(v1.y, uv1.y / v1.w, v2.y, uv2.y / v2.w, &mut self.corner_segments_v);
-            map_interpolate_float_mut(v0.y, uv0.y / v0.w, v2.y, uv2.y / v2.w, &mut self.straight_segment_v);
-        
-            // corner_segments as vector of TriangleScreenPixel zipping corner_segments_x, corner_segments_w, corner_segments_u, corner_segments_v
-            // self.corner_segments.clear();
-            // self.corner_segments = self.corner_segments_x
-            //     .iter()
-            //     .zip(self.corner_segments_w.iter())
-            //     .zip(self.corner_segments_u.iter())
-            //     .zip(self.corner_segments_v.iter())
-            //     .map(|((((y, x), (_, reciprocal_w)), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y: *y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w})
-            //     .collect();
-            let corner_segments_iter = self.corner_segments_x
+                
+            self.corner_segments_y_xwuv.clear();
+            map_interpolate_float_vec4_mut(
+                v0.y, 
+                Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w), 
+                v1.y, 
+                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w),
+                &mut self.corner_segments_y_xwuv);
+            self.corner_segments_y_xwuv.pop();// the last item is the same as the first item of the next segment, so we remove it
+            map_interpolate_float_vec4_mut(
+                v1.y, 
+                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w), 
+                v2.y, 
+                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w), 
+                &mut self.corner_segments_y_xwuv);
+            // round the x coordinate of the straight segment to the nearest integer
+            self.corner_segments_y_xwuv.iter_mut().for_each(|(_, xwuv)| { xwuv.x = xwuv.x.round();});
+
+            let corner_segments_iter = self.corner_segments_y_xwuv
             .iter()
-            .zip(self.corner_segments_w.iter())
-            .zip(self.corner_segments_u.iter())
-            .zip(self.corner_segments_v.iter())
-            .map(|((((y, x), (_, reciprocal_w)), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y: *y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w});
+            .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
         
-            // straight_segment as vector of TriangleScreenPixel zipping straight_segment_x, straight_segment_w, straight_segment_u, straight_segment_v
-            // self.straight_segment.clear();
-            // self.straight_segment = self.straight_segment_x
-            //     .iter()
-            //     .zip(self.straight_segment_w.iter())
-            //     .zip(self.straight_segment_u.iter())
-            //     .zip(self.straight_segment_v.iter())
-            //     .map(|((((y, x), (_, reciprocal_w)), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y: *y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w})
-            //     .collect();
-            let straight_segment_iter = self.straight_segment_x
+            self.straight_segment_y_xwuv.clear();
+            map_interpolate_float_vec4_mut(
+                v0.y, 
+                Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
+                v2.y, 
+                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w),
+                &mut self.straight_segment_y_xwuv);
+            // round the x coordinate of the straight segment to the nearest integer
+            self.straight_segment_y_xwuv.iter_mut().for_each(|(_,xwuv)| xwuv.x = xwuv.x.round());
+                
+            let straight_segment_iter = self.straight_segment_y_xwuv
             .iter()
-            .zip(self.straight_segment_w.iter())
-            .zip(self.straight_segment_u.iter())
-            .zip(self.straight_segment_v.iter())
-            .map(|((((y, x), (_, reciprocal_w)), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y: *y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w});
-                        
+            .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+            
             straight_segment_iter
                 .zip(corner_segments_iter)
                 .for_each(|(straight_segment_pixel, corner_segment_pixel)| {
@@ -179,28 +103,19 @@ impl Render {
                     let start_v = straight_segment_pixel.v_divided_w;
                     let end_v = corner_segment_pixel.v_divided_w;
                     let y = straight_segment_pixel.y;
-                    // let horizontal_segment_w = map_interpolate_float(start_x, start_w, end_x, end_w);
-                    // let horizontal_segment_u = map_interpolate_float(start_x, start_u, end_x, end_u);
-                    // let horizontal_segment_v = map_interpolate_float(start_x, start_v, end_x, end_v);
-                    self.horizontal_segment_w.clear();
-                    map_interpolate_float_mut(start_x, start_w, end_x, end_w, &mut self.horizontal_segment_w);
-                    self.horizontal_segment_u.clear();
-                    map_interpolate_float_mut(start_x, start_u, end_x, end_u, &mut self.horizontal_segment_u);
-                    self.horizontal_segment_v.clear();
-                    map_interpolate_float_mut(start_x, start_v, end_x, end_v, &mut self.horizontal_segment_v);
         
-                    // self.horizontal_segment.clear();
-                    // self.horizontal_segment = self.horizontal_segment_w
-                    //     .iter()
-                    //     .zip(self.horizontal_segment_u.iter())
-                    //     .zip(self.horizontal_segment_v.iter())
-                    //     .map(|(((x, reciprocal_w), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w})
-                    //     .collect();
-                    let horizontal_segment_iter = self.horizontal_segment_w
+                    self.horizontal_segment_x_ywuv.clear();
+                    map_interpolate_float_vec4_mut(
+                        start_x, 
+                        Vec4::new(y, start_w, start_u, start_v), 
+                        end_x, 
+                        Vec4::new(y, end_w, end_u, end_v), 
+                        &mut self.horizontal_segment_x_ywuv);
+                    
+                    let horizontal_segment_iter = self.horizontal_segment_x_ywuv
                     .iter()
-                    .zip(self.horizontal_segment_u.iter())
-                    .zip(self.horizontal_segment_v.iter())
-                    .map(|(((x, reciprocal_w), (_, u_divided_w)), (_, v_divided_w))| TriangleScreenPixel{x: *x, y, reciprocal_w: *reciprocal_w, u_divided_w: *u_divided_w, v_divided_w: *v_divided_w});
+                    .map(|(x, v)| TriangleScreenPixel{x: *x, y: v.x, reciprocal_w: v.y, u_divided_w: v.z, v_divided_w: v.w});
+
                     horizontal_segment_iter
                     .filter(|horizontal_segment_pixel| 
                         horizontal_segment_pixel.x >= 0.0_f32 && 
@@ -215,10 +130,11 @@ impl Render {
                             z_buffer[(y as usize * cb_width as usize + x as usize)] = reciprocal_w;
                             let u_divided_w = horizontal_segment_pixel.u_divided_w;
                             let v_divided_w = horizontal_segment_pixel.v_divided_w;
-                            let z = 1.0 / reciprocal_w;
-                            let u = u_divided_w * z;
-                            let v = v_divided_w * z;
+                            let w = 1.0 / reciprocal_w;
+                            let u = u_divided_w * w;
+                            let v = v_divided_w * w;
                             let color = get_texture_color(texture, u, v, t_width, t_height);
+                            // TODO: light changes to the texture color go here
                             put_pixel_to_color_buffer(x as i32, y as i32, color, color_buffer_u32, cb_width, cb_height)
                         }
                     });
@@ -301,7 +217,7 @@ fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> 
 
 // same as map_interpolate_float but using a mut Vec<f32, f32> instead of returning a new Vec
 #[inline(always)]
-fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 2048]>) {
+fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 1024]>) {
     //optick::event!();
     if i0 == i1 {
         values.push((i0, d0));
@@ -313,6 +229,44 @@ fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut Sm
     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
     if step == -1.0 {
         a = -a;
+    } // change sign of a if we are going backwards
+    let mut i = i0;
+    let mut d = d0;
+    loop {
+        values.push((i, d));
+
+        d += a;
+        i += step;
+
+        if step == 1.0 && i > i1 {
+            break;
+        }
+        if step == -1.0 && i < i1 {
+            break;
+        }
+    }
+}
+
+// same as map_interpolate_float_mut but using a mut SmallVec<[(f32, Vec4); 1024]>
+#[inline(always)]
+fn map_interpolate_float_vec4_mut(
+    i0: f32,
+    d0: Vec4,
+    i1: f32,
+    d1: Vec4,
+    values: &mut SmallVec<[(f32, Vec4); 1024]>,
+) {
+    //optick::event!();
+    if i0 == i1 {
+        values.push((i0, d0));
+        return;
+    }
+    //let distance = (i1 - i0).abs();
+    //values.reserve(distance as usize);
+    let mut a = (d1 - d0) / (i1 - i0);
+    let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
+    if step == -1.0 {
+        a = Vec4::ZERO - a;
     } // change sign of a if we are going backwards
     let mut i = i0;
     let mut d = d0;

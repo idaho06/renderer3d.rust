@@ -39,6 +39,15 @@ impl TriangleScreenPixel {
             v_divided_w: 0.0,
         }
     }
+    pub fn from_vec4(x: f32, vec4: Vec4) -> Self {
+        Self {
+            x,
+            y: vec4.x,
+            reciprocal_w: vec4.y,
+            u_divided_w: vec4.z,
+            v_divided_w: vec4.w,
+        }
+    }
 }
 
 impl Default for TriangleScreenPixel {
