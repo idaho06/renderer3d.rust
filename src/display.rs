@@ -1,7 +1,7 @@
 use byte_slice_cast::AsMutSliceOf;
 use rustc_hash::FxHashMap;
 use sdl2::{
-    pixels::{Color, PixelFormat},
+    pixels::Color,
     render::{Canvas, Texture},
     video::Window,
     EventPump, Sdl,
@@ -143,9 +143,12 @@ impl Display {
     pub fn clear_streaming_buffer(&mut self, name: &str, color: Color) {
         optick::event!();
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
-            let pixelformat =
-                PixelFormat::try_from(sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
-            let color = color.to_u32(&pixelformat);
+            let a = color.a;
+            let r = color.r;
+            let g = color.g;
+            let b = color.b;
+            //let color: u32 = pixel.color.to_u32(&pixelformat); //ARGB8888
+            let color: u32 = u32::from_be_bytes([a, r, g, b]); //ARGB8888
             streaming_buffer
                 .color_buffer
                 .as_mut_slice_of::<u32>()

@@ -21,9 +21,9 @@ pub struct Cube {
     camera_target: Vec3,
     light_dir: Vec3,
     z_buffer: Box<[f32]>,
-    z_buffer_clear: Box<[f32]>,
+    //z_buffer_clear: Box<[f32]>,
     color_buffer: Box<[u8]>,
-    color_buffer_clear: Box<[u8]>,
+    //color_buffer_clear: Box<[u8]>,
     //buffer_name: String,
     width: u32,
     height: u32,
@@ -154,9 +154,9 @@ impl Cube {
         let height = 360;
         display.add_streaming_buffer("cube", width, height);
         let z_buffer = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
-        let z_buffer_clear = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
+        //let z_buffer_clear = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
         let color_buffer = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
-        let color_buffer_clear = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
+        //let color_buffer_clear = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
         let now_time = 0_u32;
         let camera_pos = Vec3::new(0.0, 0.0, 2.5);
         let camera_up = Vec3::new(0.0, 1.0, 0.0);
@@ -171,9 +171,9 @@ impl Cube {
             width,
             height,
             z_buffer,
-            z_buffer_clear,
+            //z_buffer_clear,
             color_buffer,
-            color_buffer_clear,
+            //color_buffer_clear,
             now_time,
             camera_pos,
             camera_up,
@@ -363,15 +363,15 @@ impl Scene for Cube {
             .sort_unstable_by(|a, b| a.center.z.partial_cmp(&b.center.z).unwrap());
 
         // clear color buffer and z buffer
-        //self.color_buffer.fill(0_u8);
-        //self.z_buffer.fill(0.0_f32);
+        self.color_buffer.fill(0_u8);
+        self.z_buffer.fill(0.0_f32);
         //self.color_buffer.iter_mut().for_each(|x| *x = 0_u8);
         //self.z_buffer.iter_mut().for_each(|x| *x = 0.0_f32);
 
         // fast copy color_buffer_clear to color_buffer
-        self.color_buffer.copy_from_slice(&self.color_buffer_clear);
+        //self.color_buffer.copy_from_slice(&self.color_buffer_clear);
         // fast copy z_buffer_clear to z_buffer
-        self.z_buffer.copy_from_slice(&self.z_buffer_clear);
+        //self.z_buffer.copy_from_slice(&self.z_buffer_clear);
 
         // for each triangle in the transformed triangles vector
         // draw the triangle to the color buffer

@@ -36,7 +36,7 @@ impl Render {
         t_height: u32,
         z_buffer: &mut [f32]
         ) {
-            //optick::event!();
+            optick::event!();
             let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
             // reorder the triangle vertices by the y coordinate
             let triangle3d = triangle3d.reorder_vertices_by_y();
@@ -133,8 +133,20 @@ impl Render {
                             let w = 1.0 / reciprocal_w;
                             let u = u_divided_w * w;
                             let v = v_divided_w * w;
-                            let color = get_texture_color(texture, u, v, t_width, t_height);
-                            // TODO: light changes to the texture color go here
+                            let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height);
+                            // multiply color by triangle3d color
+                            let a = triangle3d.color.a as f32 / 255.0;
+                            let r = triangle3d.color.r as f32 / 255.0;
+                            let g = triangle3d.color.g as f32 / 255.0;
+                            let b = triangle3d.color.b as f32 / 255.0;
+                            let color = Color::RGBA(
+                                (texture_color.r as f32 * r ) as u8,
+                                (texture_color.g as f32 * g ) as u8,
+                                (texture_color.b as f32 * b ) as u8,
+                                (texture_color.a as f32 * a) as u8,
+                            );
+                            let color: u32 = u32::from_be_bytes([color.a, color.r, color.g, color.b]); //ARGB8888
+                            
                             put_pixel_to_color_buffer(x as i32, y as i32, color, color_buffer_u32, cb_width, cb_height)
                         }
                     });
@@ -449,7 +461,7 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
 // using coordinates u and v
 // and texture size width and height
 #[inline(always)]
-fn get_texture_color(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> u32 {
+fn get_texture_color_u32(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> u32 {
     let u = u * width as f32;
     let v = v * height as f32;
     let u = u as u32;
@@ -461,4 +473,28 @@ fn get_texture_color(texture: &[u8], u: f32, v: f32, width: u32, height: u32) ->
     let texture_u32 = texture.as_slice_of::<u32>().unwrap();
     texture_u32[index]
 }
+
+// returns the color in sdl2::pixels::Color type from a texture in &[u8] format
+// using coordinates u and v
+// and texture size width and height
+#[inline(always)]
+fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> sdl2::pixels::Color {
+    let u = u * width as f32;
+    let v = v * height as f32;
+    let u = u as u32;
+    let v = v as u32;
+    let u = u % width;
+    let v = v % height;
+    let index = (v * width + u) as usize;
+    //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
+    //let color = color.to_be_bytes();
+    assert!(index * 4 + 3 < texture.len());
+    let b = texture[index * 4];
+    let g = texture[index * 4 + 1];
+    let r = texture[index * 4 + 2];
+    let a = texture[index * 4 + 3];
+    let color = sdl2::pixels::Color::RGBA(r, g, b, a);
+    color
+}
+
 
