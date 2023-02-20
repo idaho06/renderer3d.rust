@@ -141,7 +141,7 @@ impl Cube {
         // };
 
         let mut mesh = Mesh::new();
-        mesh.load_obj("assets/crab.obj", "assets/crab.png");
+        mesh.load_obj("assets/cube.obj", "assets/cube.png");
         //let buffer_name = String::from("cube");
         // mesh.vertices = vertices;
         // mesh.uvs = uvs;
