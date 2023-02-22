@@ -1,5 +1,7 @@
 //use core::slice::SlicePattern;
 
+use std::f32::consts::PI;
+
 use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 //use sdl2::pixels::Color;
 
@@ -158,7 +160,7 @@ impl Cube {
         let color_buffer = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
         //let color_buffer_clear = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
         let now_time = 0_u32;
-        let camera_pos = Vec3::new(0.0, 0.0, 55.0);
+        let camera_pos = Vec3::new(0.0, 25.0, 55.0);
         let camera_up = Vec3::new(0.0, 1.0, 0.0);
         let camera_target = Vec3::new(0.0, 0.0, 0.0);
         let light_dir = Vec3::new(1.0, -1.0, 1.0).normalize();
@@ -191,7 +193,7 @@ impl Scene for Cube {
         let time_factor = delta_time as f32 / 1000.0;
 
         // update mesh
-        self.mesh.rotation.x += 0.5 * time_factor;
+        self.mesh.rotation.x = -(PI / 2.0);
         self.mesh.rotation.y += 0.25 * time_factor;
         //self.mesh.rotation.z += 0.5 * time_factor;
 
