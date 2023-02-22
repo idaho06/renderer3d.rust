@@ -56,7 +56,7 @@ impl Mesh {
     pub(crate) fn load_obj(&mut self, obj_file: &str, image_file: &str) {
         // we assume there is only one mesh per obj file
         // we assume the obj file is well formed
-        // we assume the obj file is triangulated
+        // we assume the obj faces are triangles or quads
         // we assume the obj file has vertices, uvs, normals, and faces
 
         // open the obj file and read each line
@@ -94,25 +94,82 @@ impl Mesh {
             // if it is a face, add it to the faces vector
             if line.starts_with("f ") {
                 let line = line.split_whitespace();
-                let mut line = line.skip(1);
-                let mut vertices = [0_usize; 3];
-                let mut uvs = [0_usize; 3];
-                let mut normals = [0_usize; 3];
-                for i in 0..3 {
-                    let face = line.next().unwrap().split('/');
-                    let mut face = face.skip(0);
-                    vertices[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
-                    uvs[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
-                    normals[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
+                let line: Vec<&str> = line.skip(1).collect();
+                // if the face has more than 3 vertices, triangulate it
+                if line.len() > 3 && line.len() < 5 {
+                    // 0   1
+                    // 3   2
+
+                    let mut vertices1 = [0_usize; 3];
+                    let mut uvs1 = [0_usize; 3];
+                    let mut normals1 = [0_usize; 3];
+                    let mut vertices2 = [0_usize; 3];
+                    let mut uvs2 = [0_usize; 3];
+                    let mut normals2 = [0_usize; 3];
+                    let mut line = line.iter();
+
+                    let mut vertex1 = line.next().unwrap().split('/'); // 0
+                    vertices1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
+                    uvs1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
+                    normals1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
+                    vertices2[0] = vertices1[0];
+                    uvs2[0] = uvs1[0];
+                    normals2[0] = normals1[0];
+
+                    let mut vertex2 = line.next().unwrap().split('/'); // 1
+                    vertices1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
+                    uvs1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
+                    normals1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
+
+                    let mut vertex3 = line.next().unwrap().split('/'); // 2
+                    vertices1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
+                    uvs1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
+                    normals1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
+                    vertices2[1] = vertices1[2];
+                    uvs2[1] = uvs1[2];
+                    normals2[1] = normals1[2];
+
+                    let mut vertex4 = line.next().unwrap().split('/'); // 3
+                    vertices2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
+                    uvs2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
+                    normals2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
+                    let normal1 = self.normals[normals1[0]];
+                    let normal2 = self.normals[normals2[0]];
+                    self.faces.push(Face {
+                        vertices: vertices1,
+                        uvs: uvs1,
+                        normals: normals1,
+                        normal: normal1,
+                        color: Color::WHITE,
+                    });
+                    self.faces.push(Face {
+                        vertices: vertices2,
+                        uvs: uvs2,
+                        normals: normals2,
+                        normal: normal2,
+                        color: Color::WHITE,
+                    });
+                } else {
+                    let mut line = line.iter();
+                    let mut vertices = [0_usize; 3];
+                    let mut uvs = [0_usize; 3];
+                    let mut normals = [0_usize; 3];
+                    for i in 0..3 {
+                        let face = line.next().unwrap().split('/');
+                        let mut face = face.skip(0);
+                        vertices[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
+                        uvs[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
+                        normals[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
+                    }
+                    let normal = self.normals[normals[0]];
+                    self.faces.push(Face {
+                        vertices,
+                        uvs,
+                        normals,
+                        normal,
+                        color: Color::WHITE,
+                    });
                 }
-                let normal = self.normals[normals[0]];
-                self.faces.push(Face {
-                    vertices,
-                    uvs,
-                    normals,
-                    normal,
-                    color: Color::WHITE,
-                });
             }
         }
         // open the image file and load the texture into a buffer using the image crate

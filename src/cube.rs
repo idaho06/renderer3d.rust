@@ -141,7 +141,7 @@ impl Cube {
         // };
 
         let mut mesh = Mesh::new();
-        mesh.load_obj("assets/cube.obj", "assets/cube.png");
+        mesh.load_obj("assets/lexus.obj", "assets/lexus.png");
         //let buffer_name = String::from("cube");
         // mesh.vertices = vertices;
         // mesh.uvs = uvs;
@@ -158,7 +158,7 @@ impl Cube {
         let color_buffer = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
         //let color_buffer_clear = vec![0_u8; (width * height * 4) as usize].into_boxed_slice();
         let now_time = 0_u32;
-        let camera_pos = Vec3::new(0.0, 0.0, 2.5);
+        let camera_pos = Vec3::new(0.0, 0.0, 55.0);
         let camera_up = Vec3::new(0.0, 1.0, 0.0);
         let camera_target = Vec3::new(0.0, 0.0, 0.0);
         let light_dir = Vec3::new(1.0, -1.0, 1.0).normalize();
