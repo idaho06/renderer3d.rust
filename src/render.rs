@@ -219,10 +219,8 @@ fn map_interpolate_float_vec4_iter(
     let mut i = i0;
     let mut d = d0;
     std::iter::from_fn(move || {
-        let result = Some((i, d));
-        if step == 1.0 && i > i1 {
-            None
-        } else if step == -1.0 && i < i1 {
+        let result = Some((i, d)); 
+        if (step == 1.0 && i > i1) || (step == -1.0 && i < i1) {
             None
         } else {
             d += a;
@@ -428,6 +426,5 @@ fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u3
     let g = texture[index * 4 + 1];
     let r = texture[index * 4 + 2];
     let a = texture[index * 4 + 3];
-    let color = sdl2::pixels::Color::RGBA(r, g, b, a);
-    color
+    sdl2::pixels::Color::RGBA(r, g, b, a)
 }
