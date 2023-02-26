@@ -1,16 +1,16 @@
 use byte_slice_cast::{AsMutSliceOf, AsSliceOf};
 use glam::{Vec2, Vec3, Vec4};
 use sdl2::pixels::Color;
-use smallvec::{smallvec, SmallVec};
+//use smallvec::{smallvec, SmallVec};
 
 use crate::triangle::{Triangle, TriangleScreenPixel};
 
 //const ARRAY_SIZE: usize = 1024;
 
 pub struct Render {
-    corner_segments_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
-    straight_segment_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
-    horizontal_segment_x_ywuv: SmallVec<[(f32, Vec4); 1024]>,
+    //corner_segments_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
+    //straight_segment_y_xwuv: SmallVec<[(f32, Vec4); 1024]>,
+    //horizontal_segment_x_ywuv: SmallVec<[(f32, Vec4); 1024]>,
 }
 
 impl Render {
@@ -18,9 +18,9 @@ impl Render {
         let cb_height = cb_height as usize;
         let cb_width = cb_width as usize;
         Self {
-            corner_segments_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
-            straight_segment_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
-            horizontal_segment_x_ywuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_width/2],
+            //corner_segments_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
+            //straight_segment_y_xwuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_height/2],
+            //horizontal_segment_x_ywuv: smallvec![(0.0, Vec4::new(0.0, 0.0, 0.0, 0.0)); cb_width/2],
         }
     }
 
@@ -56,26 +56,41 @@ impl Render {
             let v1 = Vec4::new(v1.x.round(), v1.y.round(), v1.z, v1.w);
             let v2 = Vec4::new(v2.x.round(), v2.y.round(), v2.z, v2.w);
                 
-            self.corner_segments_y_xwuv.clear();
-            map_interpolate_float_vec4_mut(
+            // self.corner_segments_y_xwuv.clear();
+            // map_interpolate_float_vec4_mut(
+            //     v0.y, 
+            //     Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w), 
+            //     v1.y, 
+            //     Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w),
+            //     &mut self.corner_segments_y_xwuv);
+            // self.corner_segments_y_xwuv.pop();// the last item is the same as the first item of the next segment, so we remove it
+            // map_interpolate_float_vec4_mut(
+            //     v1.y, 
+            //     Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w), 
+            //     v2.y, 
+            //     Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w), 
+            //     &mut self.corner_segments_y_xwuv);
+            // // round the x coordinate of the straight segment to the nearest integer
+            // self.corner_segments_y_xwuv.iter_mut().for_each(|(_, xwuv)| { xwuv.x = xwuv.x.round();});
+
+            // let corner_segments_iter = self.corner_segments_y_xwuv
+            // .iter()
+            // .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+
+
+            let corner_segment1_iter = map_interpolate_float_vec4_iter(
                 v0.y, 
                 Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w), 
                 v1.y, 
-                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w),
-                &mut self.corner_segments_y_xwuv);
-            self.corner_segments_y_xwuv.pop();// the last item is the same as the first item of the next segment, so we remove it
-            map_interpolate_float_vec4_mut(
+                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w))
+                .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+            let corner_segment2_iter = map_interpolate_float_vec4_iter(
                 v1.y, 
                 Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w), 
                 v2.y, 
-                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w), 
-                &mut self.corner_segments_y_xwuv);
-            // round the x coordinate of the straight segment to the nearest integer
-            self.corner_segments_y_xwuv.iter_mut().for_each(|(_, xwuv)| { xwuv.x = xwuv.x.round();});
-
-            let corner_segments_iter = self.corner_segments_y_xwuv
-            .iter()
-            .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w))
+                .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+            let corner_segments_iter = corner_segment1_iter.chain(corner_segment2_iter.skip(1));
         
             // self.straight_segment_y_xwuv.clear();
             // map_interpolate_float_vec4_mut(
@@ -87,9 +102,9 @@ impl Render {
             // // round the x coordinate of the straight segment to the nearest integer
             // self.straight_segment_y_xwuv.iter_mut().for_each(|(_,xwuv)| xwuv.x = xwuv.x.round());
                 
-            //let straight_segment_iter = self.straight_segment_y_xwuv
-            //.iter()
-            //.map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+            // let straight_segment_iter = self.straight_segment_y_xwuv
+            // .iter()
+            // .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
 
             let straight_segment_iter = map_interpolate_float_vec4_iter(
                 v0.y, 
@@ -129,7 +144,7 @@ impl Render {
                         Vec4::new(y, start_w, start_u, start_v), 
                         end_x, 
                         Vec4::new(y, end_w, end_u, end_v))
-                        .map(|(x, v)| TriangleScreenPixel{x, y: v.x, reciprocal_w: v.y, u_divided_w: v.z, v_divided_w: v.w});
+                        .map(|(x, v)| TriangleScreenPixel{x, y, reciprocal_w: v.y, u_divided_w: v.z, v_divided_w: v.w});
 
                     horizontal_segment_iter
                     .filter(|horizontal_segment_pixel| 
@@ -242,74 +257,74 @@ fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> 
 }
 
 // same as map_interpolate_float but using a mut Vec<f32, f32> instead of returning a new Vec
-#[inline(always)]
-fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 1024]>) {
-    //optick::event!();
-    if i0 == i1 {
-        values.push((i0, d0));
-        return;
-    }
-    //let distance = (i1 - i0).abs();
-    //values.reserve(distance as usize);
-    let mut a: f32 = (d1 - d0) / (i1 - i0);
-    let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-    if step == -1.0 {
-        a = -a;
-    } // change sign of a if we are going backwards
-    let mut i = i0;
-    let mut d = d0;
-    loop {
-        values.push((i, d));
+// #[inline(always)]
+// fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 1024]>) {
+//     //optick::event!();
+//     if i0 == i1 {
+//         values.push((i0, d0));
+//         return;
+//     }
+//     //let distance = (i1 - i0).abs();
+//     //values.reserve(distance as usize);
+//     let mut a: f32 = (d1 - d0) / (i1 - i0);
+//     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
+//     if step == -1.0 {
+//         a = -a;
+//     } // change sign of a if we are going backwards
+//     let mut i = i0;
+//     let mut d = d0;
+//     loop {
+//         values.push((i, d));
 
-        d += a;
-        i += step;
+//         d += a;
+//         i += step;
 
-        if step == 1.0 && i > i1 {
-            break;
-        }
-        if step == -1.0 && i < i1 {
-            break;
-        }
-    }
-}
+//         if step == 1.0 && i > i1 {
+//             break;
+//         }
+//         if step == -1.0 && i < i1 {
+//             break;
+//         }
+//     }
+// }
 
-// same as map_interpolate_float_mut but using a mut SmallVec<[(f32, Vec4); 1024]>
-#[inline(always)]
-fn map_interpolate_float_vec4_mut(
-    i0: f32,
-    d0: Vec4,
-    i1: f32,
-    d1: Vec4,
-    values: &mut SmallVec<[(f32, Vec4); 1024]>,
-) {
-    //optick::event!();
-    if i0 == i1 {
-        values.push((i0, d0));
-        return;
-    }
-    //let distance = (i1 - i0).abs();
-    //values.reserve(distance as usize);
-    let mut a = (d1 - d0) / (i1 - i0);
-    let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-    if step == -1.0 {
-        a = Vec4::ZERO - a;
-    } // change sign of a if we are going backwards
-    let mut i = i0;
-    let mut d = d0;
-    loop {
-        values.push((i, d));
+// // same as map_interpolate_float_mut but using a mut SmallVec<[(f32, Vec4); 1024]>
+// #[inline(always)]
+// fn map_interpolate_float_vec4_mut(
+//     i0: f32,
+//     d0: Vec4,
+//     i1: f32,
+//     d1: Vec4,
+//     values: &mut SmallVec<[(f32, Vec4); 1024]>,
+// ) {
+//     //optick::event!();
+//     if i0 == i1 {
+//         values.push((i0, d0));
+//         return;
+//     }
+//     //let distance = (i1 - i0).abs();
+//     //values.reserve(distance as usize);
+//     let mut a = (d1 - d0) / (i1 - i0);
+//     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
+//     if step == -1.0 {
+//         a = Vec4::ZERO - a;
+//     } // change sign of a if we are going backwards
+//     let mut i = i0;
+//     let mut d = d0;
+//     loop {
+//         values.push((i, d));
 
-        d += a;
-        i += step;
+//         d += a;
+//         i += step;
 
-        if step == 1.0 && i > i1 {
-            break;
-        }
-        if step == -1.0 && i < i1 {
-            break;
-        }
-    }
-}
+//         if step == 1.0 && i > i1 {
+//             break;
+//         }
+//         if step == -1.0 && i < i1 {
+//             break;
+//         }
+//     }
+// }
 
 // same as map_interpolate_float_vec4_mut but returns an iterator
 #[inline(always)]
@@ -334,13 +349,13 @@ fn map_interpolate_float_vec4_iter(
     let mut d = d0;
     std::iter::from_fn(move || {
         let result = Some((i, d));
-        d += a;
-        i += step;
         if step == 1.0 && i > i1 {
             None
         } else if step == -1.0 && i < i1 {
             None
         } else {
+            d += a;
+            i += step;
             result
         }
     })
