@@ -61,36 +61,6 @@ impl Render {
                 .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
             let corner_segments_iter = corner_segment1_iter.chain(corner_segment2_iter.skip(1));
         
-        
-            // self.straight_segment_y_xwuv.clear();
-            // map_interpolate_float_vec4_mut(
-            //     v0.y, 
-            //     Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
-            //     v2.y, 
-            //     Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w),
-            //     &mut self.straight_segment_y_xwuv);
-            // // round the x coordinate of the straight segment to the nearest integer
-            // self.straight_segment_y_xwuv.iter_mut().for_each(|(_,xwuv)| xwuv.x = xwuv.x.round());
-                
-            // let straight_segment_iter = self.straight_segment_y_xwuv
-            // .iter()
-            // .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
-
-
-            // self.straight_segment_y_xwuv.clear();
-            // map_interpolate_float_vec4_mut(
-            //     v0.y, 
-            //     Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
-            //     v2.y, 
-            //     Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w),
-            //     &mut self.straight_segment_y_xwuv);
-            // // round the x coordinate of the straight segment to the nearest integer
-            // self.straight_segment_y_xwuv.iter_mut().for_each(|(_,xwuv)| xwuv.x = xwuv.x.round());
-                
-            // let straight_segment_iter = self.straight_segment_y_xwuv
-            // .iter()
-            // .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x, y: *y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
-
             let straight_segment_iter = map_interpolate_float_vec4_iter(
                 v0.y, 
                 Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
@@ -228,77 +198,6 @@ fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> 
     values
 }
 
-// same as map_interpolate_float but using a mut Vec<f32, f32> instead of returning a new Vec
-// #[inline(always)]
-// fn map_interpolate_float_mut(i0: f32, d0: f32, i1: f32, d1: f32, values: &mut SmallVec<[(f32, f32); 1024]>) {
-//     //optick::event!();
-//     if i0 == i1 {
-//         values.push((i0, d0));
-//         return;
-//     }
-//     //let distance = (i1 - i0).abs();
-//     //values.reserve(distance as usize);
-//     let mut a: f32 = (d1 - d0) / (i1 - i0);
-//     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-//     if step == -1.0 {
-//         a = -a;
-//     } // change sign of a if we are going backwards
-//     let mut i = i0;
-//     let mut d = d0;
-//     loop {
-//         values.push((i, d));
-
-//         d += a;
-//         i += step;
-
-//         if step == 1.0 && i > i1 {
-//             break;
-//         }
-//         if step == -1.0 && i < i1 {
-//             break;
-//         }
-//     }
-// }
-
-// // same as map_interpolate_float_mut but using a mut SmallVec<[(f32, Vec4); 1024]>
-// #[inline(always)]
-// fn map_interpolate_float_vec4_mut(
-//     i0: f32,
-//     d0: Vec4,
-//     i1: f32,
-//     d1: Vec4,
-//     values: &mut SmallVec<[(f32, Vec4); 1024]>,
-// ) {
-//     //optick::event!();
-//     if i0 == i1 {
-//         values.push((i0, d0));
-//         return;
-//     }
-//     //let distance = (i1 - i0).abs();
-//     //values.reserve(distance as usize);
-//     let mut a = (d1 - d0) / (i1 - i0);
-//     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-//     if step == -1.0 {
-//         a = Vec4::ZERO - a;
-//     } // change sign of a if we are going backwards
-//     let mut i = i0;
-//     let mut d = d0;
-//     loop {
-//         values.push((i, d));
-
-//         d += a;
-//         i += step;
-
-//         if step == 1.0 && i > i1 {
-//             break;
-//         }
-//         if step == -1.0 && i < i1 {
-//             break;
-//         }
-//     }
-// }
-
-// same as map_interpolate_float_vec4_mut but returns an iterator
 #[inline]
 fn map_interpolate_float_vec4_iter(
     i0: f32,
@@ -332,8 +231,6 @@ fn map_interpolate_float_vec4_iter(
         }
     })
 }
-
-
 
 // draw a 2d line to the passed color buffer
 pub fn draw_2dline_to_color_buffer(
@@ -398,7 +295,7 @@ pub fn draw_2dline_to_color_buffer(
 }
 
 // put pixel in the color buffer using x, y, color in u32, color_buffer in &[u32], width and height
-#[inline(always)]
+#[inline]
 pub fn put_pixel_to_color_buffer(
     x: i32,
     y: i32,
@@ -498,7 +395,7 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
 // returns the color in u32 format from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
-#[inline(always)]
+#[inline]
 fn get_texture_color_u32(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> u32 {
     let u = u * width as f32;
     let v = v * height as f32;
@@ -515,7 +412,7 @@ fn get_texture_color_u32(texture: &[u8], u: f32, v: f32, width: u32, height: u32
 // returns the color in sdl2::pixels::Color type from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
-#[inline(always)]
+#[inline]
 fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> sdl2::pixels::Color {
     let u = u * width as f32;
     let v = v * height as f32;
@@ -534,5 +431,3 @@ fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u3
     let color = sdl2::pixels::Color::RGBA(r, g, b, a);
     color
 }
-
-
