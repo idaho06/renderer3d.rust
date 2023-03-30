@@ -10,7 +10,7 @@ byte-slice-cast = "1.2.2" # for converting slices from u8 to u32
 rustc-hash = "1.1.0"      # fast hashing
 #rand = "0.8.4"            # random numbers
 fastrand = "1.8.0" # fast random numbers
-glam = "0.22.0"    # algebra library
+glam = "0.23.0"    # algebra library
 #smallvec = "1.10.0" # small vectors in stack
 
 [dependencies.image]
@@ -26,3 +26,11 @@ features = []
 [dependencies.sdl2]
 version = "0.35.2"
 features = ["bundled", "unsafe_textures"] # video, keyboard events
+
+[profile.release]
+#opt-level = 3
+lto = true
+debug = true
+#debug-assertions = false
+codegen-units = 1
+#panic = "abort"
