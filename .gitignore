@@ -2,3 +2,5 @@
 /.vscode
 /Cargo.lock
 /profile
+/flamegraph.svg
+/perf.data*
