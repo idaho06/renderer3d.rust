@@ -27,7 +27,7 @@ impl Render {
         t_height: u32,
         z_buffer: &mut [f32]
         ) {
-            optick::event!();
+            //optick::event!();
             let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
             // reorder the triangle vertices by the y coordinate
             let triangle3d = triangle3d.reorder_vertices_by_y();
@@ -106,7 +106,9 @@ impl Render {
                             let u = u_divided_w * w;
                             let v = v_divided_w * w;
                             //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
-                            let (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
+                            unsafe {
+                                let (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
+                            
                             //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
                             // multiply color by triangle3d color
                             let a = triangle3d.color.a as f32 / 255.0;
@@ -126,6 +128,7 @@ impl Render {
                                 (tb as f32 * b ) as u8]); //ARGB8888
                             
                             put_pixel_to_color_buffer(x as i32, y as i32, color, color_buffer_u32, cb_width, cb_height)
+                            }
                         }
                     });
                 });
@@ -312,7 +315,7 @@ pub fn put_pixel_to_color_buffer(
                     
     } else {
         let index = (y * width as i32 + x) as usize;
-        assert!(index<color_buffer.len());
+        //assert!(index<color_buffer.len());
         color_buffer[index] = color;
     }
 }
@@ -441,22 +444,33 @@ fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u3
 // returns the color in sdl2::pixels::Color type from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
-#[inline]
+
 fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
-    let u = u * width as f32;
-    let v = v * height as f32;
-    let u = u as u32;
-    let v = v as u32;
-    let u = u % width;
-    let v = v % height;
-    let index = (((v * width + u) * 4) + 3) as usize;
-    //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
-    //let color = color.to_be_bytes();
-    assert!(index < texture.len());
-    assert!(index > 2);
-    let b = texture[index - 3];
-    let g = texture[index - 2];
-    let r = texture[index - 1];
-    let a = texture[index];
+    let u = (u * width as f32) as u32 % width;
+    let v = (v * height as f32) as u32 % height;
+    //let index = ((v * width + u) * 4) as usize;
+    // assert!(index < texture.len() - 3);
+    // let b = texture[index];
+    // let g = texture[index + 1];
+    // let r = texture[index + 2];
+    // let a = texture[index + 3];
+    let index = ((v * width + u)) as usize;
+    let texture_u32 = texture.as_slice_of::<u32>().unwrap();
+    assert!(index<texture_u32.len());
+    let color = texture_u32[index];
+    let a = (color >> 24) as u8;
+    let r = (color >> 16) as u8;
+    let g = (color >> 8) as u8;
+    let b = color as u8;
     (r, g, b, a)
+}
+
+unsafe fn get_texture_color_rgba_unsafe(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
+    let u = (u * width as f32) as u32 % width;
+    let v = (v * height as f32) as u32 % height;
+    let index = ((v * width + u) * 4) as usize;
+    
+    let [b,g,r,a] = texture.get_unchecked(index..(index+4)) else { std::hint::unreachable_unchecked() };
+    
+    (*r, *g, *b, *a)
 }

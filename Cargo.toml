@@ -30,7 +30,7 @@ features = ["bundled", "unsafe_textures"] # video, keyboard events
 [profile.release]
 #opt-level = 3
 lto = true
-debug = true
+debug = false
 #debug-assertions = false
 codegen-units = 1
 #panic = "abort"
