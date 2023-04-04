@@ -95,21 +95,39 @@ impl Render {
                         horizontal_segment_pixel.y >= 0.0_f32 &&
                         horizontal_segment_pixel.y < cb_height as f32)
                     .for_each(|horizontal_segment_pixel| {
-                        let x = horizontal_segment_pixel.x;
-                        let y = horizontal_segment_pixel.y;
+                        //let x = horizontal_segment_pixel.x;
+                        //let y = horizontal_segment_pixel.y;
+                        let x: i32;
+                        let y: i32;
+                        unsafe{
+                            x = horizontal_segment_pixel.x.to_int_unchecked();
+                            y = horizontal_segment_pixel.y.to_int_unchecked();
+                        }
                         let reciprocal_w = horizontal_segment_pixel.reciprocal_w;
-                        if reciprocal_w > z_buffer[(y as usize * cb_width as usize + x as usize)] {
-                            z_buffer[(y as usize * cb_width as usize + x as usize)] = reciprocal_w;
+                        let z_buffer_w;
+                        let z_index = y as usize * cb_width as usize + x as usize;
+                        assert!(z_index<z_buffer.len());
+                        //unsafe {
+                        z_buffer_w = z_buffer[z_index];
+                        //}
+                        
+                        if reciprocal_w > z_buffer_w {
+                            z_buffer[z_index] = reciprocal_w;
                             let u_divided_w = horizontal_segment_pixel.u_divided_w;
                             let v_divided_w = horizontal_segment_pixel.v_divided_w;
                             let w = 1.0 / reciprocal_w;
                             let u = u_divided_w * w;
                             let v = v_divided_w * w;
                             //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
-                            unsafe {
-                                let (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
-                            
+                            let tr : &u8;
+                            let tg : &u8;
+                            let tb : &u8;
+                            let ta : &u8;
+                            //unsafe {
+                            //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
+                            //}
                             //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
+                            (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
                             // multiply color by triangle3d color
                             let a = triangle3d.color.a as f32 / 255.0;
                             let r = triangle3d.color.r as f32 / 255.0;
@@ -122,13 +140,13 @@ impl Render {
                             //     (ta as f32 * a) as u8,
                             // );
                             let color: u32 = u32::from_be_bytes([
-                                (ta as f32 * a) as u8, 
-                                (tr as f32 * r ) as u8, 
-                                (tg as f32 * g ) as u8, 
-                                (tb as f32 * b ) as u8]); //ARGB8888
+                                (*ta as f32 * a) as u8, 
+                                (*tr as f32 * r ) as u8, 
+                                (*tg as f32 * g ) as u8, 
+                                (*tb as f32 * b ) as u8]); //ARGB8888
                             
-                            put_pixel_to_color_buffer(x as i32, y as i32, color, color_buffer_u32, cb_width, cb_height)
-                            }
+                            put_pixel_to_color_buffer(x, y, color, color_buffer_u32, cb_width, cb_height);
+                            
                         }
                     });
                 });
@@ -138,8 +156,9 @@ impl Render {
 
 // i = interval. Always change in +1 or -1 steps
 // d = displacement. Fractional increment, rounded to integer.
-#[inline(always)]
+#[inline]
 fn map_interpolate_int(i0: i32, d0: i32, i1: i32, d1: i32) -> Vec<(i32, i32)> {
+    //
     //optick::event!();
     if i0 == i1 {
         return vec![(i0, d0)];
@@ -248,7 +267,7 @@ pub fn draw_2dline_to_color_buffer(
     height: u32,
     color: &Color,
 ) {
-    //optick::event!();
+    optick::event!();
     // get integer coordinates from point1 and point2
     let x0 = point1.x as i32;
     let y0 = point1.y as i32;
@@ -445,26 +464,30 @@ fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u3
 // using coordinates u and v
 // and texture size width and height
 
-fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
+#[inline]
+fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (&u8,&u8,&u8,&u8) {
     let u = (u * width as f32) as u32 % width;
     let v = (v * height as f32) as u32 % height;
-    //let index = ((v * width + u) * 4) as usize;
-    // assert!(index < texture.len() - 3);
+    let index = ((v * width + u) * 4) as usize;
+    //assert!(index < texture.len() - 3);
     // let b = texture[index];
     // let g = texture[index + 1];
     // let r = texture[index + 2];
     // let a = texture[index + 3];
-    let index = ((v * width + u)) as usize;
-    let texture_u32 = texture.as_slice_of::<u32>().unwrap();
-    assert!(index<texture_u32.len());
-    let color = texture_u32[index];
-    let a = (color >> 24) as u8;
-    let r = (color >> 16) as u8;
-    let g = (color >> 8) as u8;
-    let b = color as u8;
+    let [b, g, r, a] = texture.get(index..(index+4)).unwrap_or(&[255_u8, 0_u8, 255_u8, 255_u8]) else {panic!()};
+    // let index = ((v * width + u)) as usize;
+    // let texture_u32 = texture.as_slice_of::<u32>().unwrap();
+    // assert!(index<texture_u32.len());
+    // let color = texture_u32[index];
+    // let a = (color >> 24) as u8;
+    // let r = (color >> 16) as u8;
+    // let g = (color >> 8) as u8;
+    // let b = color as u8;
+    //(r, g, b, a)
     (r, g, b, a)
 }
 
+#[inline]
 unsafe fn get_texture_color_rgba_unsafe(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
     let u = (u * width as f32) as u32 % width;
     let v = (v * height as f32) as u32 % height;
