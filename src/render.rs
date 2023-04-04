@@ -128,22 +128,36 @@ impl Render {
                             //}
                             //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
                             (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
+                            let texture_color : Vec4 = Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32);
                             // multiply color by triangle3d color
-                            let a = triangle3d.color.a as f32 / 255.0;
-                            let r = triangle3d.color.r as f32 / 255.0;
-                            let g = triangle3d.color.g as f32 / 255.0;
-                            let b = triangle3d.color.b as f32 / 255.0;
+                            // let a = triangle3d.color.a as f32 / 255.0;
+                            // let r = triangle3d.color.r as f32 / 255.0;
+                            // let g = triangle3d.color.g as f32 / 255.0;
+                            // let b = triangle3d.color.b as f32 / 255.0;
+                            let a = triangle3d.color.a as f32;
+                            let r = triangle3d.color.r as f32;
+                            let g = triangle3d.color.g as f32;
+                            let b = triangle3d.color.b as f32;
+                            let triangle_color : Vec4 = Vec4::new(a, r, g, b);
                             // let color = Color::RGBA( //<== This is probably also slow
                             //     (tr as f32 * r ) as u8,
                             //     (tg as f32 * g ) as u8,
                             //     (tb as f32 * b ) as u8,
                             //     (ta as f32 * a) as u8,
                             // );
-                            let color: u32 = u32::from_be_bytes([
-                                (*ta as f32 * a) as u8, 
-                                (*tr as f32 * r ) as u8, 
-                                (*tg as f32 * g ) as u8, 
-                                (*tb as f32 * b ) as u8]); //ARGB8888
+                            // let color: u32 = u32::from_be_bytes([
+                            //     (*ta as f32 * a) as u8, 
+                            //     (*tr as f32 * r ) as u8, 
+                            //     (*tg as f32 * g ) as u8, 
+                            //     (*tb as f32 * b ) as u8]); //ARGB8888
+                            let color : Vec4 = (texture_color) * (triangle_color / 255.0);
+                            let [a, r, g, b] = color.to_array();
+                            let color :u32;
+                            unsafe {
+                                color = u32::from_be_bytes([a.to_int_unchecked(), r.to_int_unchecked(), g.to_int_unchecked(), b.to_int_unchecked()]); //ARGB8888
+                            }
+                            //color = u32::from_be_bytes([a as u8, r as u8, g as u8, b as u8]); //ARGB8888
+
                             
                             put_pixel_to_color_buffer(x, y, color, color_buffer_u32, cb_width, cb_height);
                             
