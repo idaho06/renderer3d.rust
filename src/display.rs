@@ -1,6 +1,9 @@
+use crate::userinput::UserInput;
 use byte_slice_cast::AsMutSliceOf;
 use rustc_hash::FxHashMap;
 use sdl2::{
+    event::Event,
+    keyboard::Keycode,
     pixels::Color,
     render::{Canvas, Texture},
     video::Window,
@@ -22,6 +25,7 @@ pub struct Display {
     streaming_buffers: FxHashMap<String, StreamingBuffer>,
     w_width: u32,
     w_height: u32,
+    pub user_input: UserInput,
 }
 
 impl Default for Display {
@@ -96,6 +100,7 @@ impl Display {
             w_width,
             w_height,
             streaming_buffers: FxHashMap::default(),
+            user_input: UserInput::new(),
         }
     }
 
@@ -239,5 +244,90 @@ impl Display {
 
     pub(crate) fn get_aspect_ratio(&self) -> f32 {
         self.get_width() as f32 / self.get_height() as f32
+    }
+
+    pub fn update_user_input(&mut self) {
+        let mut event_pump = self.get_event_pump();
+        self.user_input.reset();
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => {
+                    self.user_input.quit = true;
+                }
+
+                // W key
+                Event::KeyDown {
+                    keycode: Some(Keycode::W),
+                    ..
+                } => {
+                    self.user_input.key_w.changed = true;
+                    self.user_input.key_w.pressed = true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::W),
+                    ..
+                } => {
+                    self.user_input.key_w.changed = true;
+                    self.user_input.key_w.pressed = false;
+                }
+
+                // A key
+                Event::KeyDown {
+                    keycode: Some(Keycode::A),
+                    ..
+                } => {
+                    self.user_input.key_a.changed = true;
+                    self.user_input.key_a.pressed = true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::A),
+                    ..
+                } => {
+                    self.user_input.key_a.changed = true;
+                    self.user_input.key_a.pressed = false;
+                }
+
+                // S key
+                Event::KeyDown { 
+                    keycode: Some(Keycode::S),
+                    ..
+                } => {
+                    self.user_input.key_s.changed = true;
+                    self.user_input.key_s.pressed = true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::S),
+                    ..
+                } => {
+                    self.user_input.key_s.changed = true;
+                    self.user_input.key_s.pressed = false;
+                }
+
+                // D key
+                Event::KeyDown {
+                    keycode: Some(Keycode::D),
+                    ..
+                } => {
+                    self.user_input.key_d.changed = true;
+                    self.user_input.key_d.pressed = true;
+                }
+                Event::KeyUp {
+                    keycode: Some(Keycode::D),
+                    ..
+                } => {
+                    self.user_input.key_d.changed = true;
+                    self.user_input.key_d.pressed = false;
+                }
+
+                
+
+
+                _ => {}
+            }
+        }
     }
 }

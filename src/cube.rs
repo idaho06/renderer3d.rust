@@ -3,6 +3,7 @@
 use std::f32::consts::PI;
 
 use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
+use sdl2::keyboard::Keycode;
 //use sdl2::pixels::Color;
 
 use crate::{
@@ -191,6 +192,30 @@ impl Scene for Cube {
         optick::event!();
         self.now_time += delta_time;
         let time_factor = delta_time as f32 / 1000.0;
+
+        // get keyboard state and update camera
+        // let keys_vec : Vec<Keycode> = display.get_event_pump()
+        //     .keyboard_state()
+        //     .pressed_scancodes()
+        //     .filter_map(Keycode::from_scancode)
+        //     .collect();
+        // for key in keys_vec {
+        //     match key {
+        //         Keycode::W => {
+        //             self.camera_pos += self.camera_target * time_factor;
+        //         }
+        //         Keycode::S => {
+        //             self.camera_pos -= self.camera_target * time_factor;
+        //         }
+        //         Keycode::A => {
+        //             self.camera_pos -= self.camera_target.cross(self.camera_up).normalize() * time_factor;
+        //         }
+        //         Keycode::D => {
+        //             self.camera_pos += self.camera_target.cross(self.camera_up).normalize() * time_factor;
+        //         }
+        //         _ => {}
+        //     }
+        // }
 
         // update mesh
         self.mesh.rotation.x = -(PI / 2.0);

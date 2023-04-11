@@ -6,3 +6,4 @@ pub mod point;
 pub mod render;
 pub mod scene;
 pub mod triangle;
+pub mod userinput;

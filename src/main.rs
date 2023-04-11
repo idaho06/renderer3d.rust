@@ -6,7 +6,7 @@ fn main() -> Result<(), String> {
 
     let mut display = Display::new();
     display.cls();
-    let mut event_pump = display.get_event_pump();
+    //let mut event_pump = display.get_event_pump();
 
     //display.cls();
 
@@ -14,24 +14,20 @@ fn main() -> Result<(), String> {
 
     let mut frame_time: u32;
     let mut last_frame_delta: u32 = 0;
+    let mut frame = 0_u32;
 
     let mut fire = Fire::new(&mut display);
     let mut cube = Cube::new(&mut display);
 
     optick::start_capture();
     'running: loop {
+        frame += 1;
         frame_time = display.get_frame_time();
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => {
-                    break 'running;
-                }
-                _ => {}
-            }
+
+        display.update_user_input();
+
+        if display.user_input.quit {
+            break 'running;
         }
         //display.clear_streaming_buffer("fire", color);
         //display.streaming_buffer_to_canvas("fire");
@@ -42,6 +38,7 @@ fn main() -> Result<(), String> {
         display.present_canvas();
 
         last_frame_delta = display.get_frame_time() - frame_time;
+        if frame > 60*25 { break; }
     }
     optick::stop_capture("./profile/render3d");
     Ok(())
