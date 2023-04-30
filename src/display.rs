@@ -4,6 +4,7 @@ use rustc_hash::FxHashMap;
 use sdl2::{
     event::Event,
     keyboard::Keycode,
+    mouse::MouseButton,
     pixels::Color,
     render::{Canvas, Texture},
     video::Window,
@@ -246,6 +247,13 @@ impl Display {
         self.get_width() as f32 / self.get_height() as f32
     }
 
+    pub fn switch_relative_mouse_mode(&mut self) {
+        self.user_input.mouse.is_relative = !self.user_input.mouse.is_relative;
+        self.sdl_context
+            .mouse()
+            .set_relative_mouse_mode(self.user_input.mouse.is_relative);
+    }
+
     pub fn update_user_input(&mut self) {
         let mut event_pump = self.get_event_pump();
         self.user_input.reset();
@@ -292,7 +300,7 @@ impl Display {
                 }
 
                 // S key
-                Event::KeyDown { 
+                Event::KeyDown {
                     keycode: Some(Keycode::S),
                     ..
                 } => {
@@ -323,8 +331,22 @@ impl Display {
                     self.user_input.key_d.pressed = false;
                 }
 
-                
+                Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Left,
+                    ..
+                } => {
+                    self.user_input.mouse.left.changed = true;
+                    self.user_input.mouse.left.pressed = true;
+                }
 
+                Event::MouseMotion { xrel, yrel, .. } if self.user_input.mouse.is_relative => {
+                    self.user_input.mouse.x = xrel;
+                    self.user_input.mouse.y = yrel;
+                }
+                Event::MouseMotion { x, y, .. } if !self.user_input.mouse.is_relative => {
+                    self.user_input.mouse.x = x;
+                    self.user_input.mouse.y = y;
+                }
 
                 _ => {}
             }

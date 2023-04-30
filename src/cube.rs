@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
-use sdl2::keyboard::Keycode;
+//use sdl2::keyboard::Keycode;
 //use sdl2::pixels::Color;
 
 use crate::{
@@ -165,7 +165,7 @@ impl Cube {
         let camera_pos = Vec3::new(0.0, 25.0, 55.0);
         let camera_up = Vec3::new(0.0, 1.0, 0.0);
         let camera_target = Vec3::new(0.0, 0.0, 0.0);
-        let camera_speed = 10.0_f32;
+        let camera_speed = 20.0_f32;
         let light_dir = Vec3::new(1.0, -1.0, 1.0).normalize();
         Self {
             render: Render::new(width, height),
@@ -228,10 +228,20 @@ impl Scene for Cube {
             let camera_direction = (self.camera_target - self.camera_pos).normalize();
             self.camera_pos -= camera_direction * self.camera_speed * time_factor;
         }
+        if display.user_input.key_a.pressed {
+            let camera_direction = (self.camera_target - self.camera_pos).normalize();
+            let camera_right = camera_direction.cross(self.camera_up).normalize();
+            self.camera_pos -= camera_right * self.camera_speed * time_factor;
+        }
+        if display.user_input.key_d.pressed {
+            let camera_direction = (self.camera_target - self.camera_pos).normalize();
+            let camera_right = camera_direction.cross(self.camera_up).normalize();
+            self.camera_pos += camera_right * self.camera_speed * time_factor;
+        }
 
         // update mesh
         self.mesh.rotation.x = -(PI / 2.0);
-        self.mesh.rotation.y += 0.25 * time_factor;
+        //self.mesh.rotation.y += 0.25 * time_factor;
         //self.mesh.rotation.z += 0.5 * time_factor;
 
         // get world matrix, view matrix, projection matrix

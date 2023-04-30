@@ -104,11 +104,11 @@ impl Render {
                             y = horizontal_segment_pixel.y.to_int_unchecked();
                         }
                         let reciprocal_w = horizontal_segment_pixel.reciprocal_w;
-                        let z_buffer_w;
+                        //let z_buffer_w;
                         let z_index = y as usize * cb_width as usize + x as usize;
                         assert!(z_index<z_buffer.len());
                         //unsafe {
-                        z_buffer_w = z_buffer[z_index];
+                        let z_buffer_w = z_buffer[z_index];
                         //}
                         
                         if reciprocal_w > z_buffer_w {
@@ -128,7 +128,7 @@ impl Render {
                             //}
                             //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
                             (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
-                            let texture_color : Vec4 = Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32);
+                            let texture_color : Vec4 = Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
                             // multiply color by triangle3d color
                             // let a = triangle3d.color.a as f32 / 255.0;
                             // let r = triangle3d.color.r as f32 / 255.0;

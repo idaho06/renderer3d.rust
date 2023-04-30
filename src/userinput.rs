@@ -21,6 +21,12 @@ pub struct UserInput {
     pub mouse: MouseState,
 }
 
+impl Default for UserInput {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserInput {
     pub fn new() -> Self {
         Self {

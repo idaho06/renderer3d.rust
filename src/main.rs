@@ -1,5 +1,4 @@
 use render3d::{cube::Cube, display::Display, fire::Fire, scene::Scene};
-use sdl2::{event::Event, keyboard::Keycode};
 
 fn main() -> Result<(), String> {
     println!("Renderer 3D, by Idaho06");
@@ -28,6 +27,9 @@ fn main() -> Result<(), String> {
 
         if display.user_input.quit {
             break 'running;
+        }
+        if display.user_input.mouse.left.changed && display.user_input.mouse.left.pressed {
+            display.switch_relative_mouse_mode();
         }
         //display.clear_streaming_buffer("fire", color);
         //display.streaming_buffer_to_canvas("fire");
