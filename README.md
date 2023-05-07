@@ -6,10 +6,12 @@ So here we are, creating another software rasterizer just for fun.
 I managed to render textured triangles in 3D, loaded from an obj and a png files.
 
 Stuff I would like to code:
+
 - Optimize the code as much as I can. I'm using Optik to profile and following the recomendations from the [The Rust Performance Book](https://nnethercote.github.io/perf-book/). I would like to test Cargo's flamegraph and Valgrind
-- Simple textured triangle lightning
+- ~~Simple textured triangle lightning~~
 - Gouraud shading? Phong shading?
-- Triangle clipping against the view fustrum
+- Mesh clipping against the view fustrum
+- Triangle clipping using Homogeneous coordinate clipping
 - Simple scene management. Sets of static meshes, actors. Scene changes. Transitions?
 - Vertex shaders to do fancy animations.
 - Use a music library to play tracker music (mod, xm, s3m, it)
