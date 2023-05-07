@@ -218,7 +218,7 @@ impl Scene for Cube {
 
         // update mesh
         self.mesh.rotation.x = -(PI / 2.0);
-        //self.mesh.rotation.y += 0.25 * time_factor;
+        self.mesh.rotation.y += 0.25 * time_factor;
         //self.mesh.rotation.z += 0.5 * time_factor;
 
         // get world matrix, view matrix, projection matrix
@@ -299,7 +299,7 @@ impl Scene for Cube {
             let vertex2 = self.mesh.vertices[face.vertices[1]];
             let vertex3 = self.mesh.vertices[face.vertices[2]];
 
-            // transform vertices to screen space
+            //Get Vec4 vertices
             let vertex1 = Vec4::new(vertex1.x, vertex1.y, vertex1.z, 1.0);
             let vertex2 = Vec4::new(vertex2.x, vertex2.y, vertex2.z, 1.0);
             let vertex3 = Vec4::new(vertex3.x, vertex3.y, vertex3.z, 1.0);
@@ -343,32 +343,75 @@ impl Scene for Cube {
             projected_vertex2.y *= -1.0;
             projected_vertex3.y *= -1.0;
 
-            // TODO: Separate perspective divide from screen mapping
-            // do perspective division and screen mapping
+            // save the w component for the perspective divide
+            let w1 = projected_vertex1.w;
+            let w2 = projected_vertex2.w;
+            let w3 = projected_vertex3.w;
+
+            // Perspective divide
+            let mut perspective_vertex1 = projected_vertex1 / w1;
+            let mut perspective_vertex2 = projected_vertex2 / w2;
+            let mut perspective_vertex3 = projected_vertex3 / w3;
+
+            // restore the w component for the screen mapping
+            perspective_vertex1.w = w1;
+            perspective_vertex2.w = w2;
+            perspective_vertex3.w = w3;
+
+            // Homogeneous coordinate clipping
+            // 1.- Create a poligon with the three vertices including the uv coordinates
+
+            // 2.- Clip the poligon against w plane
+
+            // 3.- Clip the poligon against x, -x, y, -y, z and -z planes
+            
+
+            // Transform x and y to screen space
             let screen_vertex1 = Vec4::new(
-                (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex1.y / projected_vertex1.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex1.z / projected_vertex1.w,
-                projected_vertex1.w,
+                (perspective_vertex1.x + 1.0) * self.width as f32 / 2.0,
+                (perspective_vertex1.y + 1.0) * self.height as f32 / 2.0,
+                perspective_vertex1.z,
+                perspective_vertex1.w,
             );
             let screen_vertex2 = Vec4::new(
-                (projected_vertex2.x / projected_vertex2.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex2.y / projected_vertex2.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex2.z / projected_vertex2.w,
-                projected_vertex2.w,
+                (perspective_vertex2.x + 1.0) * self.width as f32 / 2.0,
+                (perspective_vertex2.y + 1.0) * self.height as f32 / 2.0,
+                perspective_vertex2.z,
+                perspective_vertex2.w,
             );
             let screen_vertex3 = Vec4::new(
-                (projected_vertex3.x / projected_vertex3.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex3.y / projected_vertex3.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex3.z / projected_vertex3.w,
-                projected_vertex3.w,
+                (perspective_vertex3.x + 1.0) * self.width as f32 / 2.0,
+                (perspective_vertex3.y + 1.0) * self.height as f32 / 2.0,
+                perspective_vertex3.z,
+                perspective_vertex3.w,
             );
+
+            
+            // do perspective division and screen mapping
+            // let screen_vertex1 = Vec4::new(
+            //     (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0
+            //         + self.width as f32 / 2.0,
+            //     (projected_vertex1.y / projected_vertex1.w) * self.height as f32 / 2.0
+            //         + self.height as f32 / 2.0,
+            //     projected_vertex1.z / projected_vertex1.w,
+            //     projected_vertex1.w,
+            // );
+            // let screen_vertex2 = Vec4::new(
+            //     (projected_vertex2.x / projected_vertex2.w) * self.width as f32 / 2.0
+            //         + self.width as f32 / 2.0,
+            //     (projected_vertex2.y / projected_vertex2.w) * self.height as f32 / 2.0
+            //         + self.height as f32 / 2.0,
+            //     projected_vertex2.z / projected_vertex2.w,
+            //     projected_vertex2.w,
+            // );
+            // let screen_vertex3 = Vec4::new(
+            //     (projected_vertex3.x / projected_vertex3.w) * self.width as f32 / 2.0
+            //         + self.width as f32 / 2.0,
+            //     (projected_vertex3.y / projected_vertex3.w) * self.height as f32 / 2.0
+            //         + self.height as f32 / 2.0,
+            //     projected_vertex3.z / projected_vertex3.w,
+            //     projected_vertex3.w,
+            // );
 
             // calculate face color based on the light direction and the normal of the face
             let face_color = render::calculate_face_color(
