@@ -257,13 +257,10 @@ impl Scene for Cube {
         // TODO: Model clipping goes here.
         // We will use distances from the center of the model to the frustum planes
         // to decide if the mesh is inside the frustum or not.
+        // TODO: Define the frustum planes
         // TODO: Calculate mesh center and maximum radius
         // TODO: Transform the center of the mesh and the radius to camera space
         // TODO: Check if the mesh is inside the frustum 
-
-        // clear the projected triangles vector
-        self.transformed_triangles.clear(); // this is equivalent to .truncate(0)
-        self.screen_triangles.clear(); // this is equivalent to .truncate(0)
 
         ///////////////////////////////////////////////////////////////////////////////
         // Process the graphics pipeline stages for all the mesh triangles
@@ -291,7 +288,11 @@ impl Scene for Cube {
         //                             +--------------+
         ///////////////////////////////////////////////////////////////////////////////
 
-        // for each face of the mesh...
+        // clear the projected triangles vector
+        self.transformed_triangles.clear(); // this is equivalent to .truncate(0)
+        self.screen_triangles.clear(); // this is equivalent to .truncate(0)
+
+        // loop faces to transform them to screen space and clip them
         for face in self.mesh.faces.iter() {
             // get the three vertices of the face
             let vertex1 = self.mesh.vertices[face.vertices[0]];
@@ -342,6 +343,7 @@ impl Scene for Cube {
             projected_vertex2.y *= -1.0;
             projected_vertex3.y *= -1.0;
 
+            // TODO: Separate perspective divide from screen mapping
             // do perspective division and screen mapping
             let screen_vertex1 = Vec4::new(
                 (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0
@@ -393,6 +395,8 @@ impl Scene for Cube {
             .sort_unstable_by(|a, b| a.center.z.partial_cmp(&b.center.z).unwrap());
 
         // clear color buffer and z buffer
+        // TODO: move buffer clearing to a separate function
+        // TODO: Call clear function in parallel to the present_canvas() function
         self.color_buffer.fill(0_u8);
         self.z_buffer.fill(0.0_f32);
         //self.color_buffer.iter_mut().for_each(|x| *x = 0_u8);
