@@ -196,30 +196,7 @@ impl Scene for Cube {
         self.now_time += delta_time;
         let time_factor = delta_time as f32 / 1000.0;
 
-        // get keyboard state and update camera
-        // let keys_vec : Vec<Keycode> = display.get_event_pump()
-        //     .keyboard_state()
-        //     .pressed_scancodes()
-        //     .filter_map(Keycode::from_scancode)
-        //     .collect();
-        // for key in keys_vec {
-        //     match key {
-        //         Keycode::W => {
-        //             self.camera_pos += self.camera_target * time_factor;
-        //         }
-        //         Keycode::S => {
-        //             self.camera_pos -= self.camera_target * time_factor;
-        //         }
-        //         Keycode::A => {
-        //             self.camera_pos -= self.camera_target.cross(self.camera_up).normalize() * time_factor;
-        //         }
-        //         Keycode::D => {
-        //             self.camera_pos += self.camera_target.cross(self.camera_up).normalize() * time_factor;
-        //         }
-        //         _ => {}
-        //     }
-        // }
-
+        // input handling
         if display.user_input.key_w.pressed {
             let camera_direction = (self.camera_target - self.camera_pos).normalize();
             self.camera_pos += camera_direction * self.camera_speed * time_factor;
@@ -276,7 +253,15 @@ impl Scene for Cube {
             0.1,
             100.0,
         );
-        // clean the projected triangles vector
+
+        // TODO: Model clipping goes here.
+        // We will use distances from the center of the model to the frustum planes
+        // to decide if the mesh is inside the frustum or not.
+        // TODO: Calculate mesh center and maximum radius
+        // TODO: Transform the center of the mesh and the radius to camera space
+        // TODO: Check if the mesh is inside the frustum 
+
+        // clear the projected triangles vector
         self.transformed_triangles.clear(); // this is equivalent to .truncate(0)
         self.screen_triangles.clear(); // this is equivalent to .truncate(0)
 
@@ -292,15 +277,15 @@ impl Scene for Cube {
         //     |   +--------------+
         //     `-> | Camera space |  <-- multiply by view matrix
         //         +--------------+
-        //         |    +------------+
-        //         `--> |  Clipping  |  <-- clip against the six frustum planes
-        //              +------------+
-        //              |    +------------+
-        //              `--> | Projection |  <-- multiply by projection matrix
-        //                   +------------+
-        //                   |    +-------------+
-        //                   `--> | Image space |  <-- apply perspective divide
-        //                        +-------------+
+        //         |    +--------------+
+        //         `--> |  Projection  |  <-- multiply by projection matrix
+        //              +--------------+
+        //              |    +-------------+
+        //              `--> | Image space |  <-- apply perspective divide
+        //                   +-------------+
+        //                   |    +-------------------+
+        //                   `--> | Triangle clipping |  <-- Homogeneous coordinate clipping
+        //                        +-------------------+
         //                        |    +--------------+
         //                        `--> | Screen space |  <-- ready to render
         //                             +--------------+
@@ -348,10 +333,6 @@ impl Scene for Cube {
             // reorder transformed_triangles by depth
             //self.transformed_triangles
             //    .sort_unstable_by(|a, b| b.center.z.partial_cmp(&a.center.z).unwrap());
-
-            // TODO: triangle clipping goes here.
-            // The clipping algorithm can create new triangles, so we need to store them in a
-            // temporary vector and then append them to the projected triangles vector.
 
             let mut projected_vertex1 = projection_matrix * transformed_vertex1;
             let mut projected_vertex2 = projection_matrix * transformed_vertex2;
