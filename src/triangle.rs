@@ -13,6 +13,7 @@ pub struct Face {
     pub color: Color,
 }
 
+#[derive(Debug)]
 pub struct Triangle {
     pub vertices: [Vec4; 3],
     pub center: Vec4,

@@ -7,3 +7,4 @@ pub mod render;
 pub mod scene;
 pub mod triangle;
 pub mod userinput;
+pub mod clipping;
