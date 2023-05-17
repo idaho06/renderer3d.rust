@@ -7,6 +7,10 @@ use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 //use sdl2::pixels::Color;
 
 use crate::{
+    clipping::{
+        clip_triangle_w_axis, clip_triangle_x_axis, clip_triangle_y_axis, clip_triangle_z_axis,
+        TriangleClipResult,
+    },
     display::Display,
     mesh::Mesh,
     render::{self, Render},
@@ -260,7 +264,7 @@ impl Scene for Cube {
         // TODO: Define the frustum planes
         // TODO: Calculate mesh center and maximum radius
         // TODO: Transform the center of the mesh and the radius to camera space
-        // TODO: Check if the mesh is inside the frustum 
+        // TODO: Check if the mesh is inside the frustum
 
         ///////////////////////////////////////////////////////////////////////////////
         // Process the graphics pipeline stages for all the mesh triangles
@@ -359,12 +363,96 @@ impl Scene for Cube {
             perspective_vertex3.w = w3;
 
             // Homogeneous coordinate clipping
-            // 1.- Create a poligon with the three vertices including the uv coordinates
+            // 1.- Create a triangle with the perspective vertex and the uvs. Create a vector of triangles with the triangle.
+            let perspective_triangle = Triangle::from_vertices_uv(
+                [
+                    perspective_vertex1,
+                    perspective_vertex2,
+                    perspective_vertex3,
+                ],
+                [
+                    self.mesh.uvs[face.uvs[0]],
+                    self.mesh.uvs[face.uvs[1]],
+                    self.mesh.uvs[face.uvs[2]],
+                ],
+            );
+            let mut perspective_triangles = vec![perspective_triangle];
 
-            // 2.- Clip the poligon against w plane
+            // 2.- pop triangles from perspective_triangles, clip the triangle and push the resulting triangles to perspective_triangles_clip_w
+            let mut perspective_triangles_clip_w: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles.pop() {
+                let mut result = clip_triangle_w_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_w.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_w.push(triangle1);
+                        perspective_triangles_clip_w.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_w.len() == 0 {
+                continue;
+            }
 
-            // 3.- Clip the poligon against x, -x, y, -y, z and -z planes
-            
+            // 3.- repeat same process for x, y and z axis
+            let mut perspective_triangles_clip_wx: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_w.pop() {
+                let mut result = clip_triangle_x_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wx.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wx.push(triangle1);
+                        perspective_triangles_clip_wx.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wx.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxy: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wx.pop() {
+                let mut result = clip_triangle_y_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxy.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxy.push(triangle1);
+                        perspective_triangles_clip_wxy.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxy.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxyz: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wxy.pop() {
+                let mut result = clip_triangle_z_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxyz.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxyz.push(triangle1);
+                        perspective_triangles_clip_wxyz.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxyz.len() == 0 {
+                continue;
+            }
+
+            // TODO: Apply viewport transform to the triangles in perspective_triangles_clip_wxyz
 
             // Transform x and y to screen space
             let screen_vertex1 = Vec4::new(
@@ -386,7 +474,6 @@ impl Scene for Cube {
                 perspective_vertex3.w,
             );
 
-            
             // do perspective division and screen mapping
             // let screen_vertex1 = Vec4::new(
             //     (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0

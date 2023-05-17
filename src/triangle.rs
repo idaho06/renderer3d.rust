@@ -76,6 +76,20 @@ impl Triangle {
             color: Color::WHITE,
         }
     }
+    // triangle contructor with only three Vec4 vertices and uvs. No normal calculated
+    pub fn from_vertices_uv(vertices: [Vec4; 3], uvs: [Vec2; 3]) -> Self {
+        let normal = Vec3::ZERO;
+        // calculate center of the triangle
+        let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
+        //
+        Self {
+            vertices,
+            center,
+            uvs,
+            normal,
+            color: Color::WHITE,
+        }
+    }
     // triangle constructor with three Vec4 vertices, three Vec2 uvs, Vec3 normal, and Color color
     pub fn from_vertices_uvs_normal_color(
         vertices: [Vec4; 3],

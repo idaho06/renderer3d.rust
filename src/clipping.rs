@@ -1,26 +1,26 @@
-use glam::{Vec2, Vec4};
 use crate::triangle::Triangle;
+use glam::{Vec2, Vec4};
 //use smallvec::SmallVec;
 
-enum TriangleClipResult {
+pub enum TriangleClipResult {
     OneTriangle(Triangle),
     TwoTriangles(Triangle, Triangle),
     NoTriangle,
 }
 
-fn clip_triangle_w_axis(triangle: Triangle) -> TriangleClipResult {
-    clip_triangle_on_axis(triangle, 0.0, |v| v.w, |w, plane| w > plane)
+pub fn clip_triangle_w_axis(triangle: Triangle) -> TriangleClipResult {
+    clip_triangle_on_axis(triangle, 0.0001, |v| v.w, |w, plane| w > plane)
 }
 
-fn clip_triangle_x_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_x_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, -1.0, |v| v.x, |x, plane| x > plane)
 }
 
-fn clip_triangle_y_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_y_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, -1.0, |v| v.y, |y, plane| y > plane)
 }
 
-fn clip_triangle_z_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_z_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, -1.0, |v| v.z, |z, plane| z > plane)
 }
 
@@ -36,12 +36,10 @@ fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, 1.0, |v| v.z, |z, plane| z < plane)
 }
 
-
-
-fn clip_triangle_on_w_axis (triangle: Triangle) -> TriangleClipResult {
+fn clip_triangle_on_w_axis(triangle: Triangle) -> TriangleClipResult {
     // TODO: Use smallvec for inside_points and outside_points
-    let mut inside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
-    let mut outside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
+    let mut inside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
+    let mut outside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
 
     for i in 0..3 {
         if triangle.vertices[i].w > 0.0 {
@@ -74,7 +72,7 @@ fn clip_triangle_on_w_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::OneTriangle(new_triangle)
-        },
+        }
         2 => {
             // The inside vertices are A and B, and the outside vertex is C
             // We are going to create two new Triangles with vertices A, B, and A'
@@ -103,15 +101,15 @@ fn clip_triangle_on_w_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::TwoTriangles(triangle1, triangle2)
-        },
+        }
         3 => TriangleClipResult::OneTriangle(triangle),
         _ => panic!("inside_points.len() is not 0, 1, 2, or 3"),
     }
 }
 
-fn clip_triangle_on_plus_x_axis (triangle: Triangle) -> TriangleClipResult {
-    let mut inside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
-    let mut outside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
+fn clip_triangle_on_plus_x_axis(triangle: Triangle) -> TriangleClipResult {
+    let mut inside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
+    let mut outside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
 
     for i in 0..3 {
         if triangle.vertices[i].x > -1.0 {
@@ -144,7 +142,7 @@ fn clip_triangle_on_plus_x_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::OneTriangle(new_triangle)
-        },
+        }
         2 => {
             // The inside vertices are A and B, and the outside vertex is C
             // We are going to create two new Triangles with vertices A, B, and A'
@@ -173,15 +171,15 @@ fn clip_triangle_on_plus_x_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::TwoTriangles(triangle1, triangle2)
-        },
+        }
         3 => TriangleClipResult::OneTriangle(triangle),
         _ => panic!("inside_points.len() is not 0, 1, 2, or 3"),
     }
 }
 
-fn clip_triangle_on_minus_x_axis (triangle: Triangle) -> TriangleClipResult {
-    let mut inside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
-    let mut outside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
+fn clip_triangle_on_minus_x_axis(triangle: Triangle) -> TriangleClipResult {
+    let mut inside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
+    let mut outside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
 
     for i in 0..3 {
         if triangle.vertices[i].x < 1.0 {
@@ -214,7 +212,7 @@ fn clip_triangle_on_minus_x_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::OneTriangle(new_triangle)
-        },
+        }
         2 => {
             // The inside vertices are A and B, and the outside vertex is C
             // We are going to create two new Triangles with vertices A, B, and A'
@@ -243,20 +241,23 @@ fn clip_triangle_on_minus_x_axis (triangle: Triangle) -> TriangleClipResult {
             );
 
             TriangleClipResult::TwoTriangles(triangle1, triangle2)
-        },
+        }
         3 => TriangleClipResult::OneTriangle(triangle),
         _ => panic!("inside_points.len() is not 0, 1, 2, or 3"),
     }
 }
 
-
-
-fn clip_triangle_on_axis<F>(triangle: Triangle, clip_plane: f32, axis_selector: F, comparator: fn(f32, f32) -> bool) -> TriangleClipResult
+fn clip_triangle_on_axis<F>(
+    triangle: Triangle,
+    clip_plane: f32,
+    axis_selector: F,
+    comparator: fn(f32, f32) -> bool,
+) -> TriangleClipResult
 where
     F: Fn(&Vec4) -> f32,
 {
-    let mut inside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
-    let mut outside_points: Vec<(&Vec4,&Vec2)> = Vec::new();
+    let mut inside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
+    let mut outside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
 
     for i in 0..3 {
         if comparator(axis_selector(&triangle.vertices[i]), clip_plane) {
@@ -276,8 +277,10 @@ where
             let a = inside_points[0];
             let b = outside_points[0];
             let c = outside_points[1];
-            let factor_ab = (clip_plane - axis_selector(a.0)) / (axis_selector(b.0) - axis_selector(a.0));
-            let factor_ac = (clip_plane - axis_selector(a.0)) / (axis_selector(c.0) - axis_selector(a.0));
+            let factor_ab =
+                (clip_plane - axis_selector(a.0)) / (axis_selector(b.0) - axis_selector(a.0));
+            let factor_ac =
+                (clip_plane - axis_selector(a.0)) / (axis_selector(c.0) - axis_selector(a.0));
             let b_prime = (a.0.lerp(*b.0, factor_ab), a.1.lerp(*b.1, factor_ab));
             let c_prime = (a.0.lerp(*c.0, factor_ac), a.1.lerp(*c.1, factor_ac));
 
@@ -289,7 +292,7 @@ where
             );
 
             TriangleClipResult::OneTriangle(new_triangle)
-        },
+        }
         2 => {
             // The inside vertices are A and B, and the outside vertex is C
             // We are going to create two new Triangles with vertices A, B, and A'
@@ -298,8 +301,10 @@ where
             let a = inside_points[0];
             let b = inside_points[1];
             let c = outside_points[0];
-            let factor_ac = (clip_plane - axis_selector(a.0)) / (axis_selector(c.0) - axis_selector(a.0));
-            let factor_bc = (clip_plane - axis_selector(b.0)) / (axis_selector(c.0) - axis_selector(b.0));
+            let factor_ac =
+                (clip_plane - axis_selector(a.0)) / (axis_selector(c.0) - axis_selector(a.0));
+            let factor_bc =
+                (clip_plane - axis_selector(b.0)) / (axis_selector(c.0) - axis_selector(b.0));
             let a_prime = (a.0.lerp(*c.0, factor_ac), a.1.lerp(*c.1, factor_ac));
             let b_prime = (b.0.lerp(*c.0, factor_bc), b.1.lerp(*c.1, factor_bc));
 
@@ -318,13 +323,21 @@ where
             );
 
             TriangleClipResult::TwoTriangles(triangle1, triangle2)
-        },
+        }
         3 => TriangleClipResult::OneTriangle(triangle),
         _ => panic!("inside_points.len() is not 0, 1, 2, or 3"),
     }
 }
 
+/*
+ _______ ______  _____ _______ _____
+|__   __|  ____|/ ____|__   __/ ____|
+   | |  | |__  | (___    | | | (___
+   | |  |  __|  \___ \   | |  \___ \
+   | |  | |____ ____) |  | |  ____) |
+   |_|  |______|_____/   |_| |_____/
 
+                                      */
 
 #[cfg(test)]
 mod tests {
@@ -346,7 +359,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result = clip_triangle_on_w_axis(triangle);
@@ -359,7 +377,7 @@ mod tests {
                 assert_eq!(triangle.uvs[0], Vec2::new(0.0, 0.0));
                 assert_eq!(triangle.uvs[1], Vec2::new(1.0, 0.0));
                 assert_eq!(triangle.uvs[2], Vec2::new(0.0, 1.0));
-            },
+            }
             _ => panic!("Expected TriangleClipResult::OneTriangle"),
         }
     }
@@ -378,7 +396,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result = clip_triangle_on_w_axis(triangle);
@@ -387,7 +410,7 @@ mod tests {
             TriangleClipResult::OneTriangle(triangle) => {
                 println!("{:?}", triangle);
                 assert!(true);
-            },
+            }
             _ => panic!("Expected TriangleClipResult::OneTriangle"),
         }
     }
@@ -406,7 +429,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result = clip_triangle_on_w_axis(triangle);
@@ -416,7 +444,7 @@ mod tests {
                 println!("triangle 1: {:?}", triangle1);
                 println!("triangle 2: {:?}", triangle2);
                 assert!(true);
-            },
+            }
             _ => panic!("Expected TriangleClipResult::TwoTriangles"),
         }
     }
@@ -435,7 +463,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result = clip_triangle_on_plus_x_axis(triangle);
@@ -444,12 +477,12 @@ mod tests {
             TriangleClipResult::OneTriangle(triangle) => {
                 println!("{:?}", triangle);
                 assert!(true);
-            },
+            }
             _ => panic!("Expected TriangleClipResult::OneTriangle"),
         }
     }
 
-    #[test] 
+    #[test]
     fn test05_plus_x_vs_generic_axis() {
         let triangle1 = Triangle::from_vertices_uvs_normal_color(
             [
@@ -463,7 +496,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
         let triangle2 = Triangle::from_vertices_uvs_normal_color(
             [
@@ -477,7 +515,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result1 = clip_triangle_on_plus_x_axis(triangle1);
@@ -485,11 +528,14 @@ mod tests {
 
         // The two results should be the same
         match (result1, result2) {
-            (TriangleClipResult::OneTriangle(triangle1), TriangleClipResult::OneTriangle(triangle2)) => {
+            (
+                TriangleClipResult::OneTriangle(triangle1),
+                TriangleClipResult::OneTriangle(triangle2),
+            ) => {
                 println!("triangle1: {:?}", triangle1);
                 println!("triangle2: {:?}", triangle2);
                 assert_eq!(triangle1, triangle2);
-            },
+            }
             _ => panic!("Expected TriangleClipResult::OneTriangle"),
         }
     }
@@ -508,7 +554,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
         let triangle2 = Triangle::from_vertices_uvs_normal_color(
             [
@@ -522,7 +573,12 @@ mod tests {
                 Vec2::new(0.0, 1.0),
             ],
             Vec3::new(0.0, 0.0, 1.0),
-            Color { r: 255, g: 255, b: 255, a: 255 },
+            Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 255,
+            },
         );
 
         let result1 = clip_triangle_on_w_axis(triangle1);
@@ -530,13 +586,15 @@ mod tests {
 
         // The two results should be the same
         match (result1, result2) {
-            (TriangleClipResult::OneTriangle(triangle1), TriangleClipResult::OneTriangle(triangle2)) => {
+            (
+                TriangleClipResult::OneTriangle(triangle1),
+                TriangleClipResult::OneTriangle(triangle2),
+            ) => {
                 println!("triangle1: {:?}", triangle1);
                 println!("triangle2: {:?}", triangle2);
                 assert_eq!(triangle1, triangle2);
-            },
+            }
             _ => panic!("Expected TriangleClipResult::OneTriangle"),
         }
     }
 }
-
