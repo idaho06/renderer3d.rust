@@ -9,7 +9,7 @@ edition = "2021"
 byte-slice-cast = "1.2.2" # for converting slices from u8 to u32
 rustc-hash = "1.1.0"      # fast hashing
 #rand = "0.8.4"            # random numbers
-fastrand = "1.8.0" # fast random numbers
+fastrand = "2.0.0" # fast random numbers
 glam = "0.24.0"    # algebra library
 #smallvec = "1.10.0" # small vectors in stack
 
