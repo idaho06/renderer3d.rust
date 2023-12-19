@@ -9,7 +9,7 @@ pub enum TriangleClipResult {
 }
 
 pub fn clip_triangle_w_axis(triangle: Triangle) -> TriangleClipResult {
-    clip_triangle_on_axis(triangle, 0.0001, |v| v.w, |w, plane| w > plane)
+    clip_triangle_on_axis(triangle, 0.001, |v| v.w, |w, plane| w > plane)
 }
 
 pub fn clip_triangle_x_axis(triangle: Triangle) -> TriangleClipResult {
@@ -24,15 +24,15 @@ pub fn clip_triangle_z_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, -1.0, |v| v.z, |z, plane| z > plane)
 }
 
-fn clip_triangle_nx_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_nx_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, 1.0, |v| v.x, |x, plane| x < plane)
 }
 
-fn clip_triangle_ny_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_ny_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, 1.0, |v| v.y, |y, plane| y < plane)
 }
 
-fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
+pub fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_axis(triangle, 1.0, |v| v.z, |z, plane| z < plane)
 }
 
