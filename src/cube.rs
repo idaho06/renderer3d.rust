@@ -1,7 +1,5 @@
 //use core::slice::SlicePattern;
 
-use std::f32::consts::PI;
-
 use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 //use sdl2::keyboard::Keycode;
 //use sdl2::pixels::Color;
@@ -368,7 +366,7 @@ impl Scene for Cube {
             // 2.- pop triangles from perspective_triangles, clip the triangle and push the resulting triangles to perspective_triangles_clip_w
             let mut perspective_triangles_clip_w: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles.pop() {
-                let mut result = clip_triangle_w_axis(triangle);
+                let result = clip_triangle_w_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_w.push(triangle);
@@ -380,14 +378,14 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_w.len() == 0 {
+            if perspective_triangles_clip_w.is_empty() {
                 continue;
             }
 
             // 3.- repeat same process for x, y and z axis
             let mut perspective_triangles_clip_wx: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_w.pop() {
-                let mut result = clip_triangle_x_axis(triangle);
+                let result = clip_triangle_x_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wx.push(triangle);
@@ -399,13 +397,13 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wx.len() == 0 {
+            if perspective_triangles_clip_wx.is_empty() {
                 continue;
             }
 
             let mut perspective_triangles_clip_wxy: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_wx.pop() {
-                let mut result = clip_triangle_y_axis(triangle);
+                let result = clip_triangle_y_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wxy.push(triangle);
@@ -417,13 +415,13 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wxy.len() == 0 {
+            if perspective_triangles_clip_wxy.is_empty() {
                 continue;
             }
 
             let mut perspective_triangles_clip_wxyz: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_wxy.pop() {
-                let mut result = clip_triangle_z_axis(triangle);
+                let result = clip_triangle_z_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wxyz.push(triangle);
@@ -435,13 +433,13 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wxyz.len() == 0 {
+            if perspective_triangles_clip_wxyz.is_empty() {
                 continue;
             }
 
             let mut perspective_triangles_clip_wxyz_nx: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_wxyz.pop() {
-                let mut result = clip_triangle_nx_axis(triangle);
+                let result = clip_triangle_nx_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wxyz_nx.push(triangle);
@@ -453,13 +451,13 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wxyz_nx.len() == 0 {
+            if perspective_triangles_clip_wxyz_nx.is_empty() {
                 continue;
             }
 
             let mut perspective_triangles_clip_wxyz_nxny: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_wxyz_nx.pop() {
-                let mut result = clip_triangle_ny_axis(triangle);
+                let result = clip_triangle_ny_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wxyz_nxny.push(triangle);
@@ -471,13 +469,13 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wxyz_nxny.len() == 0 {
+            if perspective_triangles_clip_wxyz_nxny.is_empty() {
                 continue;
             }
 
             let mut perspective_triangles_clip_wxyz_nxnynz: Vec<Triangle> = Vec::new();
             while let Some(triangle) = perspective_triangles_clip_wxyz_nxny.pop() {
-                let mut result = clip_triangle_nz_axis(triangle);
+                let result = clip_triangle_nz_axis(triangle);
                 match result {
                     TriangleClipResult::OneTriangle(triangle) => {
                         perspective_triangles_clip_wxyz_nxnynz.push(triangle);
@@ -489,7 +487,7 @@ impl Scene for Cube {
                     TriangleClipResult::NoTriangle => {}
                 }
             }
-            if perspective_triangles_clip_wxyz_nxnynz.len() == 0 {
+            if perspective_triangles_clip_wxyz_nxnynz.is_empty() {
                 continue;
             }
 

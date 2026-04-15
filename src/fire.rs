@@ -93,11 +93,7 @@ impl Fire {
                 } else {
                     0
                 };
-                let new_value = if self.fire_buffer[below] > decay {
-                    self.fire_buffer[below] - decay
-                } else {
-                    0
-                };
+                let new_value = self.fire_buffer[below].saturating_sub(decay);
                 self.fire_buffer[index] = new_value;
             }
         }

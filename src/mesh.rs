@@ -155,8 +155,7 @@ impl Mesh {
                     let mut uvs = [0_usize; 3];
                     let mut normals = [0_usize; 3];
                     for i in 0..3 {
-                        let face = line.next().unwrap().split('/');
-                        let mut face = face.skip(0);
+                        let mut face = line.next().unwrap().split('/');
                         vertices[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
                         uvs[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
                         normals[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
