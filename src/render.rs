@@ -43,6 +43,12 @@ impl Render {
         let max_x = cb_width_f32 - 1.0;
         // reorder the triangle vertices by the y coordinate
         let triangle3d = triangle3d.reorder_vertices_by_y();
+        let triangle_color = Vec4::new(
+            triangle3d.color.a as f32,
+            triangle3d.color.r as f32,
+            triangle3d.color.g as f32,
+            triangle3d.color.b as f32,
+        ) / 255.0;
         // assuming the longest segment is v0 to v2
         // we calculate the segments:
         // v0 to v1 and v1 to v2
@@ -174,27 +180,19 @@ impl Render {
                     let u = u_divided_w * w;
                     let v = v_divided_w * w;
                     //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
-                    let tr: &u8;
-                    let tg: &u8;
-                    let tb: &u8;
-                    let ta: &u8;
                     //unsafe {
                     //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
                     //}
                     //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
-                    (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
+                    let [tr, tg, tb, ta] =
+                        get_texture_color_rgba(texture, u, v, t_width, t_height);
                     let texture_color: Vec4 =
-                        Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
+                        Vec4::new(ta as f32, tr as f32, tg as f32, tb as f32);
                     // multiply color by triangle3d color
                     // let a = triangle3d.color.a as f32 / 255.0;
                     // let r = triangle3d.color.r as f32 / 255.0;
                     // let g = triangle3d.color.g as f32 / 255.0;
                     // let b = triangle3d.color.b as f32 / 255.0;
-                    let a = triangle3d.color.a as f32;
-                    let r = triangle3d.color.r as f32;
-                    let g = triangle3d.color.g as f32;
-                    let b = triangle3d.color.b as f32;
-                    let triangle_color: Vec4 = Vec4::new(a, r, g, b);
                     // let color = Color::RGBA( //<== This is probably also slow
                     //     (tr as f32 * r ) as u8,
                     //     (tg as f32 * g ) as u8,
@@ -206,7 +204,7 @@ impl Render {
                     //     (*tr as f32 * r ) as u8,
                     //     (*tg as f32 * g ) as u8,
                     //     (*tb as f32 * b ) as u8]); //ARGB8888
-                    let color: Vec4 = (texture_color) * (triangle_color / 255.0);
+                    let color: Vec4 = texture_color * triangle_color;
                     let [a, r, g, b] = color.to_array();
                     let color: u32;
                     unsafe {
@@ -539,31 +537,15 @@ fn get_texture_color_rgba(
     v: f32,
     width: u32,
     height: u32,
-) -> (&u8, &u8, &u8, &u8) {
+) -> [u8; 4] {
     let u = (u * width as f32) as u32 % width;
     let v = (v * height as f32) as u32 % height;
     let index = ((v * width + u) * 4) as usize;
-    //assert!(index < texture.len() - 3);
-    // let b = texture[index];
-    // let g = texture[index + 1];
-    // let r = texture[index + 2];
-    // let a = texture[index + 3];
-    let [b, g, r, a] = texture
-        .get(index..(index + 4))
-        .unwrap_or(&[255_u8, 0_u8, 255_u8, 255_u8])
-    else {
-        panic!()
-    };
-    // let index = ((v * width + u)) as usize;
-    // let texture_u32 = texture.as_slice_of::<u32>().unwrap();
-    // assert!(index<texture_u32.len());
-    // let color = texture_u32[index];
-    // let a = (color >> 24) as u8;
-    // let r = (color >> 16) as u8;
-    // let g = (color >> 8) as u8;
-    // let b = color as u8;
-    //(r, g, b, a)
-    (r, g, b, a)
+    if let Some([b, g, r, a]) = texture.get(index..(index + 4)) {
+        [*r, *g, *b, *a]
+    } else {
+        [255, 0, 255, 255]
+    }
 }
 
 // #[inline]
