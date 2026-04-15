@@ -81,8 +81,8 @@ impl Fire {
     }
 
     fn update_fire_buffer(&mut self) {
-        for x in 0..self.width {
-            for y in 0..self.height {
+        for y in 0..self.height {
+            for x in 0..self.width {
                 let index = (x + (self.width * y)) as usize;
                 let decay = self.rng.u8(..3);
                 //let decay = 1;
