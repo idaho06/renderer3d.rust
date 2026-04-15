@@ -573,10 +573,6 @@ impl Scene for Cube {
             // );
             // self.screen_triangles.push(screen_triangle);
         }
-        // sort screen triangles by depth
-        self.screen_triangles
-            .sort_unstable_by(|a, b| a.center.z.partial_cmp(&b.center.z).unwrap());
-
         // clear color buffer and z buffer
         // TODO: move buffer clearing to a separate function
         // TODO: Call clear function in parallel to the present_canvas() function
