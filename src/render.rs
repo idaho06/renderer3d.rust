@@ -1,4 +1,4 @@
-use byte_slice_cast::{AsMutSliceOf, AsSliceOf};
+use byte_slice_cast::AsMutSliceOf;
 use glam::{Vec2, Vec3, Vec4};
 use sdl2::pixels::Color;
 
@@ -16,6 +16,7 @@ impl Render {
     }
 
     // implement draw_3dtriangle_to_color_buffer
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_3dtriangle_to_color_buffer(
         &mut self,
         triangle3d: &Triangle,
@@ -208,37 +209,37 @@ fn map_interpolate_int(i0: i32, d0: i32, i1: i32, d1: i32) -> Vec<(i32, i32)> {
 // same as interpolate_int but with f32 instead of i32
 // i = interval. Always change in +1.0 or -1.0 steps
 // d = displacement. Fractional increment
-#[inline(always)]
-fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> {
-    //optick::event!();
-    if i0 == i1 {
-        return vec![(i0, d0)];
-    }
-    let distance = (i1 - i0).abs();
-    let mut values: Vec<(f32, f32)> = Vec::with_capacity(distance as usize);
-    let mut a: f32 = (d1 - d0) / (i1 - i0);
-    let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-    if step == -1.0 {
-        a = -a;
-    } // change sign of a if we are going backwards
-    let mut i = i0;
-    let mut d = d0;
-    loop {
-        values.push((i, d));
+// #[inline(always)]
+// fn map_interpolate_float(i0: f32, d0: f32, i1: f32, d1: f32) -> Vec<(f32, f32)> {
+//     //optick::event!();
+//     if i0 == i1 {
+//         return vec![(i0, d0)];
+//     }
+//     let distance = (i1 - i0).abs();
+//     let mut values: Vec<(f32, f32)> = Vec::with_capacity(distance as usize);
+//     let mut a: f32 = (d1 - d0) / (i1 - i0);
+//     let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
+//     if step == -1.0 {
+//         a = -a;
+//     } // change sign of a if we are going backwards
+//     let mut i = i0;
+//     let mut d = d0;
+//     loop {
+//         values.push((i, d));
 
-        d += a;
-        i += step;
+//         d += a;
+//         i += step;
 
-        if step == 1.0 && i > i1 {
-            break;
-        }
-        if step == -1.0 && i < i1 {
-            break;
-        }
-    }
+//         if step == 1.0 && i > i1 {
+//             break;
+//         }
+//         if step == -1.0 && i < i1 {
+//             break;
+//         }
+//     }
 
-    values
-}
+//     values
+// }
 
 #[inline]
 fn map_interpolate_float_vec4_iter(
@@ -436,43 +437,43 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
 // returns the color in u32 format from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
-#[inline]
-fn get_texture_color_u32(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> u32 {
-    let u = u * width as f32;
-    let v = v * height as f32;
-    let u = u as u32;
-    let v = v as u32;
-    let u = u % width;
-    let v = v % height;
-    let index = (v * width + u) as usize;
-    //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
-    let texture_u32 = texture.as_slice_of::<u32>().unwrap();
-    assert!(index<texture_u32.len());
-    texture_u32[index]
-    //u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]])
-}
+// #[inline]
+// fn get_texture_color_u32(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> u32 {
+//     let u = u * width as f32;
+//     let v = v * height as f32;
+//     let u = u as u32;
+//     let v = v as u32;
+//     let u = u % width;
+//     let v = v % height;
+//     let index = (v * width + u) as usize;
+//     //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
+//     let texture_u32 = texture.as_slice_of::<u32>().unwrap();
+//     assert!(index<texture_u32.len());
+//     texture_u32[index]
+//     //u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]])
+// }
 
 // returns the color in sdl2::pixels::Color type from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
-#[inline]
-fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> sdl2::pixels::Color {
-    let u = u * width as f32;
-    let v = v * height as f32;
-    let u = u as u32;
-    let v = v as u32;
-    let u = u % width;
-    let v = v % height;
-    let index = (v * width + u) as usize;
-    //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
-    //let color = color.to_be_bytes();
-    assert!(index * 4 + 3 < texture.len());
-    let b = texture[index * 4];
-    let g = texture[index * 4 + 1];
-    let r = texture[index * 4 + 2];
-    let a = texture[index * 4 + 3];
-    sdl2::pixels::Color::RGBA(r, g, b, a)
-}
+// #[inline]
+// fn get_texture_color_sdl2(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> sdl2::pixels::Color {
+//     let u = u * width as f32;
+//     let v = v * height as f32;
+//     let u = u as u32;
+//     let v = v as u32;
+//     let u = u % width;
+//     let v = v % height;
+//     let index = (v * width + u) as usize;
+//     //let color = u32::from_le_bytes([texture[index * 4], texture[index * 4 + 1], texture[index * 4 + 2], texture[index * 4 + 3]]);
+//     //let color = color.to_be_bytes();
+//     assert!(index * 4 + 3 < texture.len());
+//     let b = texture[index * 4];
+//     let g = texture[index * 4 + 1];
+//     let r = texture[index * 4 + 2];
+//     let a = texture[index * 4 + 3];
+//     sdl2::pixels::Color::RGBA(r, g, b, a)
+// }
 
 // returns the color in sdl2::pixels::Color type from a texture in &[u8] format
 // using coordinates u and v
@@ -501,13 +502,13 @@ fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u3
     (r, g, b, a)
 }
 
-#[inline]
-unsafe fn get_texture_color_rgba_unsafe(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
-    let u = (u * width as f32) as u32 % width;
-    let v = (v * height as f32) as u32 % height;
-    let index = ((v * width + u) * 4) as usize;
+// #[inline]
+// unsafe fn get_texture_color_rgba_unsafe(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
+//     let u = (u * width as f32) as u32 % width;
+//     let v = (v * height as f32) as u32 % height;
+//     let index = ((v * width + u) * 4) as usize;
     
-    let [b,g,r,a] = texture.get_unchecked(index..(index+4)) else { std::hint::unreachable_unchecked() };
+//     let [b,g,r,a] = texture.get_unchecked(index..(index+4)) else { std::hint::unreachable_unchecked() };
     
-    (*r, *g, *b, *a)
-}
+//     (*r, *g, *b, *a)
+// }
