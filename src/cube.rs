@@ -6,9 +6,8 @@ use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 
 use crate::{
     clipping::{
+        TriangleClipResult, clip_triangle_nx_axis, clip_triangle_ny_axis, clip_triangle_nz_axis,
         clip_triangle_w_axis, clip_triangle_x_axis, clip_triangle_y_axis, clip_triangle_z_axis,
-        clip_triangle_nx_axis, clip_triangle_ny_axis, clip_triangle_nz_axis,
-        TriangleClipResult,
     },
     display::Display,
     mesh::Mesh,
@@ -17,11 +16,15 @@ use crate::{
     triangle::Triangle,
 };
 
+const CLIP_BUFFER_CAPACITY: usize = 128;
+
 pub struct Cube {
     render: Render,
     mesh: Mesh,
     transformed_triangles: Vec<Triangle>,
     screen_triangles: Vec<Triangle>,
+    clip_buffer_ping: Vec<Triangle>,
+    clip_buffer_pong: Vec<Triangle>,
     camera_pos: Vec3,
     camera_up: Vec3,
     camera_target: Vec3,
@@ -157,8 +160,10 @@ impl Cube {
         // ];
         let transformed_triangles = Vec::<Triangle>::with_capacity(mesh.faces.len());
         let screen_triangles = Vec::<Triangle>::with_capacity(mesh.faces.len());
-        let width = 640*2;
-        let height = 360*2;
+        let clip_buffer_ping = Vec::<Triangle>::with_capacity(CLIP_BUFFER_CAPACITY);
+        let clip_buffer_pong = Vec::<Triangle>::with_capacity(CLIP_BUFFER_CAPACITY);
+        let width = 640 * 2;
+        let height = 360 * 2;
         display.add_streaming_buffer("cube", width, height);
         let z_buffer = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
         //let z_buffer_clear = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
@@ -175,6 +180,8 @@ impl Cube {
             mesh,
             transformed_triangles,
             screen_triangles,
+            clip_buffer_ping,
+            clip_buffer_pong,
             //buffer_name,
             width,
             height,
@@ -190,12 +197,34 @@ impl Cube {
             light_dir,
         }
     }
+
+    fn run_clip_stage(
+        source: &mut Vec<Triangle>,
+        destination: &mut Vec<Triangle>,
+        clip_fn: fn(Triangle) -> TriangleClipResult,
+    ) -> bool {
+        destination.clear();
+
+        while let Some(triangle) = source.pop() {
+            match clip_fn(triangle) {
+                TriangleClipResult::OneTriangle(triangle) => {
+                    destination.push(triangle);
+                }
+                TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                    destination.push(triangle1);
+                    destination.push(triangle2);
+                }
+                TriangleClipResult::NoTriangle => {}
+            }
+        }
+
+        !destination.is_empty()
+    }
 }
 
 // implement the scene trait for the cube
 impl Scene for Cube {
     fn update(&mut self, delta_time: u32, display: &Display, _scene: &Option<Sequence>) {
-
         self.now_time += delta_time;
         let time_factor = delta_time as f32 / 1000.0;
 
@@ -257,7 +286,6 @@ impl Scene for Cube {
             100.0,
         );
 
-        // TODO: Model clipping goes here.
         // We will use distances from the center of the model to the frustum planes
         // to decide if the mesh is inside the frustum or not.
         // TODO: Define the frustum planes
@@ -324,6 +352,7 @@ impl Scene for Cube {
                 ],
                 face.color,
             ); // this calculates normal and center of the triangle
+            let triangle_normal = transformed_triangle.normal;
 
             // decide if the triangle is visible or not
             // if the triangle is not visible, do not add it to the transformed triangles vector
@@ -350,153 +379,89 @@ impl Scene for Cube {
             // divide-by-zero for vertices behind the camera and to get
             // correct W interpolation at clip boundaries.
             let clip_triangle = Triangle::from_vertices_uv(
-                [
-                    projected_vertex1,
-                    projected_vertex2,
-                    projected_vertex3,
-                ],
+                [projected_vertex1, projected_vertex2, projected_vertex3],
                 [
                     self.mesh.uvs[face.uvs[0]],
                     self.mesh.uvs[face.uvs[1]],
                     self.mesh.uvs[face.uvs[2]],
                 ],
             );
-            let mut perspective_triangles = vec![clip_triangle];
+            self.clip_buffer_ping.clear();
+            self.clip_buffer_pong.clear();
+            self.clip_buffer_ping.push(clip_triangle);
 
-            // 2.- pop triangles from perspective_triangles, clip the triangle and push the resulting triangles to perspective_triangles_clip_w
-            let mut perspective_triangles_clip_w: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles.pop() {
-                let result = clip_triangle_w_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_w.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_w.push(triangle1);
-                        perspective_triangles_clip_w.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_w.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_w_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            // 3.- repeat same process for x, y and z axis
-            let mut perspective_triangles_clip_wx: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_w.pop() {
-                let result = clip_triangle_x_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wx.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wx.push(triangle1);
-                        perspective_triangles_clip_wx.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wx.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_x_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            let mut perspective_triangles_clip_wxy: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_wx.pop() {
-                let result = clip_triangle_y_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wxy.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wxy.push(triangle1);
-                        perspective_triangles_clip_wxy.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wxy.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_y_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            let mut perspective_triangles_clip_wxyz: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_wxy.pop() {
-                let result = clip_triangle_z_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wxyz.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wxyz.push(triangle1);
-                        perspective_triangles_clip_wxyz.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wxyz.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_z_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            let mut perspective_triangles_clip_wxyz_nx: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_wxyz.pop() {
-                let result = clip_triangle_nx_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wxyz_nx.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wxyz_nx.push(triangle1);
-                        perspective_triangles_clip_wxyz_nx.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wxyz_nx.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_nx_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            let mut perspective_triangles_clip_wxyz_nxny: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_wxyz_nx.pop() {
-                let result = clip_triangle_ny_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wxyz_nxny.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wxyz_nxny.push(triangle1);
-                        perspective_triangles_clip_wxyz_nxny.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wxyz_nxny.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_ny_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
-            let mut perspective_triangles_clip_wxyz_nxnynz: Vec<Triangle> = Vec::new();
-            while let Some(triangle) = perspective_triangles_clip_wxyz_nxny.pop() {
-                let result = clip_triangle_nz_axis(triangle);
-                match result {
-                    TriangleClipResult::OneTriangle(triangle) => {
-                        perspective_triangles_clip_wxyz_nxnynz.push(triangle);
-                    }
-                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
-                        perspective_triangles_clip_wxyz_nxnynz.push(triangle1);
-                        perspective_triangles_clip_wxyz_nxnynz.push(triangle2);
-                    }
-                    TriangleClipResult::NoTriangle => {}
-                }
-            }
-            if perspective_triangles_clip_wxyz_nxnynz.is_empty() {
+            if !Self::run_clip_stage(
+                &mut self.clip_buffer_ping,
+                &mut self.clip_buffer_pong,
+                clip_triangle_nz_axis,
+            ) {
                 continue;
             }
+            std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
 
             // 4.- Perspective divide (after clipping, so W is always positive)
             //     then transform to screen space
+            let width = self.width as f32;
+            let height = self.height as f32;
+            let light_dir = self.light_dir;
+            let clipped_triangles = &self.clip_buffer_ping;
+            let screen_triangles = &mut self.screen_triangles;
 
-            let screen_triangles = perspective_triangles_clip_wxyz_nxnynz
-            .into_iter()
-            .map(|clipped_triangle| {
+            for clipped_triangle in clipped_triangles.iter() {
                 let mut screen_vertex1 = clipped_triangle.vertices[0];
                 let mut screen_vertex2 = clipped_triangle.vertices[1];
                 let mut screen_vertex3 = clipped_triangle.vertices[2];
@@ -516,33 +481,31 @@ impl Scene for Cube {
                 screen_vertex3.z /= w3;
 
                 // Transform x and y to screen space
-                screen_vertex1.x = (screen_vertex1.x + 1.0) * self.width as f32 / 2.0;
-                screen_vertex1.y = (screen_vertex1.y + 1.0) * self.height as f32 / 2.0;
-                screen_vertex2.x = (screen_vertex2.x + 1.0) * self.width as f32 / 2.0;
-                screen_vertex2.y = (screen_vertex2.y + 1.0) * self.height as f32 / 2.0;
-                screen_vertex3.x = (screen_vertex3.x + 1.0) * self.width as f32 / 2.0;
-                screen_vertex3.y = (screen_vertex3.y + 1.0) * self.height as f32 / 2.0;
-                
+                screen_vertex1.x = (screen_vertex1.x + 1.0) * width / 2.0;
+                screen_vertex1.y = (screen_vertex1.y + 1.0) * height / 2.0;
+                screen_vertex2.x = (screen_vertex2.x + 1.0) * width / 2.0;
+                screen_vertex2.y = (screen_vertex2.y + 1.0) * height / 2.0;
+                screen_vertex3.x = (screen_vertex3.x + 1.0) * width / 2.0;
+                screen_vertex3.y = (screen_vertex3.y + 1.0) * height / 2.0;
+
                 // calculate face color based on the light direction and the normal of the face
                 let face_color = render::calculate_face_color(
-                    self.light_dir,
-                    self.transformed_triangles.last().unwrap().normal,
+                    light_dir,
+                    triangle_normal,
                     clipped_triangle.color,
                 );
 
-                Triangle::from_vertices_uvs_normal_color(
+                screen_triangles.push(Triangle::from_vertices_uvs_normal_color(
                     [screen_vertex1, screen_vertex2, screen_vertex3],
                     [
                         clipped_triangle.uvs[0],
                         clipped_triangle.uvs[1],
                         clipped_triangle.uvs[2],
                     ],
-                    self.transformed_triangles.last().unwrap().normal,
+                    triangle_normal,
                     face_color,
-                )
-            })
-            .collect::<Vec<Triangle>>();
-            
+                ));
+            }
 
             // // Transform x and y to screen space
             // let screen_vertex1 = Vec4::new(
@@ -609,7 +572,6 @@ impl Scene for Cube {
             //     face_color,
             // );
             // self.screen_triangles.push(screen_triangle);
-            self.screen_triangles.extend(screen_triangles);
         }
         // sort screen triangles by depth
         self.screen_triangles
@@ -662,7 +624,6 @@ impl Scene for Cube {
     }
 
     fn render(&self, display: &mut Display) {
-
         //display.streaming_buffer_to_canvas(self.buffer_name.as_str());
         display.color_buffer_to_canvas("cube", &self.color_buffer);
     }
