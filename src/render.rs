@@ -306,20 +306,21 @@ fn map_interpolate_float_vec4_iter(
 ) -> impl Iterator<Item = (f32, Vec4)> {
     //optick::event!();
     //let mut a = (d1 - d0) / (i1 - i0);
+    let forward = i1 > i0;
     let mut a = if i1 == i0 {
         Vec4::ZERO
     } else {
         (d1 - d0) / (i1 - i0)
     };
-    let step: f32 = if i1 > i0 { 1.0 } else { -1.0 };
-    if step == -1.0 {
+    if !forward {
         a = Vec4::ZERO - a;
     } // change sign of a if we are going backwards
+    let step = if forward { 1.0 } else { -1.0 };
     let mut i = i0;
     let mut d = d0;
     std::iter::from_fn(move || {
         let result = Some((i, d));
-        if (step == 1.0 && i > i1) || (step == -1.0 && i < i1) {
+        if (forward && i > i1) || (!forward && i < i1) {
             None
         } else {
             d += a;
