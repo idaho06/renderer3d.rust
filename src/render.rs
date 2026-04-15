@@ -43,12 +43,18 @@ impl Render {
         let max_x = cb_width_f32 - 1.0;
         // reorder the triangle vertices by the y coordinate
         let triangle3d = triangle3d.reorder_vertices_by_y();
-        let triangle_color = Vec4::new(
-            triangle3d.color.a as f32,
-            triangle3d.color.r as f32,
-            triangle3d.color.g as f32,
-            triangle3d.color.b as f32,
-        ) / 255.0;
+        // let triangle_color = Vec4::new(
+        //     triangle3d.color.a as f32,
+        //     triangle3d.color.r as f32,
+        //     triangle3d.color.g as f32,
+        //     triangle3d.color.b as f32,
+        // ) / 255.0;
+        let triangle_color_array_u8 = [
+            triangle3d.color.a,
+            triangle3d.color.r,
+            triangle3d.color.g,
+            triangle3d.color.b,
+        ];
         // assuming the longest segment is v0 to v2
         // we calculate the segments:
         // v0 to v1 and v1 to v2
@@ -184,10 +190,12 @@ impl Render {
                     //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
                     //}
                     //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
-                    let [tr, tg, tb, ta] =
-                        get_texture_color_rgba(texture, u, v, t_width, t_height);
-                    let texture_color: Vec4 =
-                        Vec4::new(ta as f32, tr as f32, tg as f32, tb as f32);
+                    // let [tr, tg, tb, ta] =
+                    //     get_texture_color_rgba(texture, u, v, t_width, t_height);
+                    // let texture_color: Vec4 =
+                    //     Vec4::new(ta as f32, tr as f32, tg as f32, tb as f32);
+                    let texture_color_array_u8 =
+                        get_texture_color_argb_pow2_unchecked(texture, u, v, t_width, t_height);
                     // multiply color by triangle3d color
                     // let a = triangle3d.color.a as f32 / 255.0;
                     // let r = triangle3d.color.r as f32 / 255.0;
@@ -204,15 +212,24 @@ impl Render {
                     //     (*tr as f32 * r ) as u8,
                     //     (*tg as f32 * g ) as u8,
                     //     (*tb as f32 * b ) as u8]); //ARGB8888
-                    let color: Vec4 = texture_color * triangle_color;
-                    let [a, r, g, b] = color.to_array();
+                    //let color: Vec4 = texture_color * triangle_color;
+
+                    
+                    fn mul_u8_and_shift_right_8(a: u8, b: u8) -> u8 {
+                        ((a as u16 * b as u16) >> 8) as u8
+                    }
+
+                    let a = mul_u8_and_shift_right_8(texture_color_array_u8[0], triangle_color_array_u8[0]);
+                    let r = mul_u8_and_shift_right_8(texture_color_array_u8[1], triangle_color_array_u8[1]);
+                    let g = mul_u8_and_shift_right_8(texture_color_array_u8[2], triangle_color_array_u8[2]);
+                    let b = mul_u8_and_shift_right_8(texture_color_array_u8[3], triangle_color_array_u8[3]);
                     let color: u32;
                     unsafe {
                         color = u32::from_be_bytes([
-                            a.to_int_unchecked(),
-                            r.to_int_unchecked(),
-                            g.to_int_unchecked(),
-                            b.to_int_unchecked(),
+                            a,
+                            r,
+                            g,
+                            b,
                         ]); //ARGB8888
                         *color_buffer_u32.get_unchecked_mut(z_index) = color;
                     }
@@ -531,6 +548,7 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
 // using coordinates u and v
 // and texture size width and height
 
+#[allow(dead_code)]
 #[inline]
 fn get_texture_color_rgba(
     texture: &[u8],
@@ -548,6 +566,52 @@ fn get_texture_color_rgba(
         [255, 0, 255, 255]
     }
 }
+
+#[allow(dead_code)]
+#[inline]
+fn get_texture_color_argb(
+    texture: &[u8],
+    u: f32,
+    v: f32,
+    width: u32,
+    height: u32,
+) -> [u8; 4] {
+    let u = (u * width as f32) as u32 % width;
+    let v = (v * height as f32) as u32 % height;
+    let index = ((v * width + u) * 4) as usize;
+    if let Some([b, g, r, a]) = texture.get(index..(index + 4)) {
+        [*a, *r, *g, *b]
+    } else {
+        [255, 255, 0, 255]
+    }
+}
+
+#[inline]
+fn get_texture_color_argb_pow2_unchecked(
+    texture: &[u8],
+    u: f32,
+    v: f32,
+    width: u32,
+    height: u32,
+) -> [u8; 4] {
+    debug_assert!(width.is_power_of_two());
+    debug_assert!(height.is_power_of_two());
+    debug_assert_eq!(texture.len(), width as usize * height as usize * 4);
+
+    let u = ((u * width as f32) as u32) & (width - 1);
+    let v = ((v * height as f32) as u32) & (height - 1);
+    let index = ((v * width + u) * 4) as usize;
+
+    unsafe {
+        [
+            *texture.get_unchecked(index + 3),
+            *texture.get_unchecked(index + 2),
+            *texture.get_unchecked(index + 1),
+            *texture.get_unchecked(index),
+        ]
+    }
+}
+
 
 // #[inline]
 // unsafe fn get_texture_color_rgba_unsafe(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (u8,u8,u8,u8) {
