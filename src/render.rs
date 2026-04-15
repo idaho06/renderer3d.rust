@@ -27,7 +27,20 @@ impl Render {
         z_buffer: &mut [f32],
     ) {
         //optick::event!();
+        if cb_width == 0 || cb_height == 0 {
+            return;
+        }
+
         let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
+        let cb_width_usize = cb_width as usize;
+        let cb_height_usize = cb_height as usize;
+        let buffer_len = cb_width_usize * cb_height_usize;
+        debug_assert_eq!(color_buffer_u32.len(), buffer_len);
+        debug_assert_eq!(z_buffer.len(), buffer_len);
+
+        let cb_width_f32 = cb_width as f32;
+        let cb_height_f32 = cb_height as f32;
+        let max_x = cb_width_f32 - 1.0;
         // reorder the triangle vertices by the y coordinate
         let triangle3d = triangle3d.reorder_vertices_by_y();
         // assuming the longest segment is v0 to v2
@@ -88,122 +101,129 @@ impl Render {
             v_divided_w: xwuv.w,
         });
 
-        straight_segment_iter.zip(corner_segments_iter).for_each(
-            |(straight_segment_pixel, corner_segment_pixel)| {
-                let start_x = straight_segment_pixel.x;
-                let end_x = corner_segment_pixel.x;
-                let start_w = straight_segment_pixel.reciprocal_w;
-                let end_w = corner_segment_pixel.reciprocal_w;
-                let start_u = straight_segment_pixel.u_divided_w;
-                let end_u = corner_segment_pixel.u_divided_w;
-                let start_v = straight_segment_pixel.v_divided_w;
-                let end_v = corner_segment_pixel.v_divided_w;
-                let y = straight_segment_pixel.y;
+        for (straight_segment_pixel, corner_segment_pixel) in
+            straight_segment_iter.zip(corner_segments_iter)
+        {
+            let scanline_y = straight_segment_pixel.y;
+            if scanline_y < 0.0 || scanline_y >= cb_height_f32 {
+                continue;
+            }
 
-                let horizontal_segment_iter = map_interpolate_float_vec4_iter(
-                    start_x,
-                    Vec4::new(y, start_w, start_u, start_v),
-                    end_x,
-                    Vec4::new(y, end_w, end_u, end_v),
-                )
-                .map(|(x, v)| TriangleScreenPixel {
-                    x,
-                    y,
-                    reciprocal_w: v.y,
-                    u_divided_w: v.z,
-                    v_divided_w: v.w,
-                });
+            let start_x = straight_segment_pixel.x;
+            let end_x = corner_segment_pixel.x;
+            let start_values = Vec3::new(
+                straight_segment_pixel.reciprocal_w,
+                straight_segment_pixel.u_divided_w,
+                straight_segment_pixel.v_divided_w,
+            );
+            let end_values = Vec3::new(
+                corner_segment_pixel.reciprocal_w,
+                corner_segment_pixel.u_divided_w,
+                corner_segment_pixel.v_divided_w,
+            );
 
-                horizontal_segment_iter
-                    .filter(|horizontal_segment_pixel| {
-                        horizontal_segment_pixel.x >= 0.0_f32
-                            && horizontal_segment_pixel.x < cb_width as f32
-                            && horizontal_segment_pixel.y >= 0.0_f32
-                            && horizontal_segment_pixel.y < cb_height as f32
-                    })
-                    .for_each(|horizontal_segment_pixel| {
-                        //let x = horizontal_segment_pixel.x;
-                        //let y = horizontal_segment_pixel.y;
-                        let x: i32;
-                        let y: i32;
-                        unsafe {
-                            x = horizontal_segment_pixel.x.to_int_unchecked();
-                            y = horizontal_segment_pixel.y.to_int_unchecked();
-                        }
-                        let reciprocal_w = horizontal_segment_pixel.reciprocal_w;
-                        //let z_buffer_w;
-                        let z_index = y as usize * cb_width as usize + x as usize;
-                        assert!(z_index < z_buffer.len());
-                        //unsafe {
-                        let z_buffer_w = z_buffer[z_index];
-                        //}
+            let (raw_start_x, raw_end_x, raw_start_values, raw_end_values) = if start_x <= end_x {
+                (start_x, end_x, start_values, end_values)
+            } else {
+                (end_x, start_x, end_values, start_values)
+            };
 
-                        if reciprocal_w > z_buffer_w {
-                            z_buffer[z_index] = reciprocal_w;
-                            let u_divided_w = horizontal_segment_pixel.u_divided_w;
-                            let v_divided_w = horizontal_segment_pixel.v_divided_w;
-                            let w = 1.0 / reciprocal_w;
-                            let u = u_divided_w * w;
-                            let v = v_divided_w * w;
-                            //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
-                            let tr: &u8;
-                            let tg: &u8;
-                            let tb: &u8;
-                            let ta: &u8;
-                            //unsafe {
-                            //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
-                            //}
-                            //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
-                            (tr, tg, tb, ta) =
-                                get_texture_color_rgba(texture, u, v, t_width, t_height);
-                            let texture_color: Vec4 =
-                                Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
-                            // multiply color by triangle3d color
-                            // let a = triangle3d.color.a as f32 / 255.0;
-                            // let r = triangle3d.color.r as f32 / 255.0;
-                            // let g = triangle3d.color.g as f32 / 255.0;
-                            // let b = triangle3d.color.b as f32 / 255.0;
-                            let a = triangle3d.color.a as f32;
-                            let r = triangle3d.color.r as f32;
-                            let g = triangle3d.color.g as f32;
-                            let b = triangle3d.color.b as f32;
-                            let triangle_color: Vec4 = Vec4::new(a, r, g, b);
-                            // let color = Color::RGBA( //<== This is probably also slow
-                            //     (tr as f32 * r ) as u8,
-                            //     (tg as f32 * g ) as u8,
-                            //     (tb as f32 * b ) as u8,
-                            //     (ta as f32 * a) as u8,
-                            // );
-                            // let color: u32 = u32::from_be_bytes([
-                            //     (*ta as f32 * a) as u8,
-                            //     (*tr as f32 * r ) as u8,
-                            //     (*tg as f32 * g ) as u8,
-                            //     (*tb as f32 * b ) as u8]); //ARGB8888
-                            let color: Vec4 = (texture_color) * (triangle_color / 255.0);
-                            let [a, r, g, b] = color.to_array();
-                            let color: u32;
-                            unsafe {
-                                color = u32::from_be_bytes([
-                                    a.to_int_unchecked(),
-                                    r.to_int_unchecked(),
-                                    g.to_int_unchecked(),
-                                    b.to_int_unchecked(),
-                                ]); //ARGB8888
-                            }
-                            //color = u32::from_be_bytes([a as u8, r as u8, g as u8, b as u8]); //ARGB8888
+            if raw_end_x < 0.0 || raw_start_x > max_x {
+                continue;
+            }
 
-                            put_pixel_to_color_buffer(
-                                x,
-                                y,
-                                color,
-                                color_buffer_u32,
-                                cb_width,
-                                cb_height,
-                            );
-                        }
-                    });
-            },
-        );
+            let clamped_start_x = raw_start_x.max(0.0);
+            let clamped_end_x = raw_end_x.min(max_x);
+            if clamped_start_x > clamped_end_x {
+                continue;
+            }
+
+            let span_step = if raw_start_x == raw_end_x {
+                Vec3::ZERO
+            } else {
+                (raw_end_values - raw_start_values) / (raw_end_x - raw_start_x)
+            };
+            let mut span_values =
+                raw_start_values + span_step * (clamped_start_x - raw_start_x);
+
+            let start_x: i32;
+            let end_x: i32;
+            let y: i32;
+            unsafe {
+                start_x = clamped_start_x.to_int_unchecked();
+                end_x = clamped_end_x.to_int_unchecked();
+                y = scanline_y.to_int_unchecked();
+            }
+
+            let row_base = y as usize * cb_width_usize;
+
+            for x in start_x..=end_x {
+                let reciprocal_w = span_values.x;
+                let z_index = row_base + x as usize;
+
+                let z_buffer_w = unsafe { *z_buffer.get_unchecked(z_index) };
+
+                if reciprocal_w > z_buffer_w {
+                    unsafe {
+                        *z_buffer.get_unchecked_mut(z_index) = reciprocal_w;
+                    }
+
+                    let u_divided_w = span_values.y;
+                    let v_divided_w = span_values.z;
+                    let w = 1.0 / reciprocal_w;
+                    let u = u_divided_w * w;
+                    let v = v_divided_w * w;
+                    //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
+                    let tr: &u8;
+                    let tg: &u8;
+                    let tb: &u8;
+                    let ta: &u8;
+                    //unsafe {
+                    //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
+                    //}
+                    //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
+                    (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
+                    let texture_color: Vec4 =
+                        Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
+                    // multiply color by triangle3d color
+                    // let a = triangle3d.color.a as f32 / 255.0;
+                    // let r = triangle3d.color.r as f32 / 255.0;
+                    // let g = triangle3d.color.g as f32 / 255.0;
+                    // let b = triangle3d.color.b as f32 / 255.0;
+                    let a = triangle3d.color.a as f32;
+                    let r = triangle3d.color.r as f32;
+                    let g = triangle3d.color.g as f32;
+                    let b = triangle3d.color.b as f32;
+                    let triangle_color: Vec4 = Vec4::new(a, r, g, b);
+                    // let color = Color::RGBA( //<== This is probably also slow
+                    //     (tr as f32 * r ) as u8,
+                    //     (tg as f32 * g ) as u8,
+                    //     (tb as f32 * b ) as u8,
+                    //     (ta as f32 * a) as u8,
+                    // );
+                    // let color: u32 = u32::from_be_bytes([
+                    //     (*ta as f32 * a) as u8,
+                    //     (*tr as f32 * r ) as u8,
+                    //     (*tg as f32 * g ) as u8,
+                    //     (*tb as f32 * b ) as u8]); //ARGB8888
+                    let color: Vec4 = (texture_color) * (triangle_color / 255.0);
+                    let [a, r, g, b] = color.to_array();
+                    let color: u32;
+                    unsafe {
+                        color = u32::from_be_bytes([
+                            a.to_int_unchecked(),
+                            r.to_int_unchecked(),
+                            g.to_int_unchecked(),
+                            b.to_int_unchecked(),
+                        ]); //ARGB8888
+                        *color_buffer_u32.get_unchecked_mut(z_index) = color;
+                    }
+                    //color = u32::from_be_bytes([a as u8, r as u8, g as u8, b as u8]); //ARGB8888
+                }
+
+                span_values += span_step;
+            }
+        }
     }
 }
 
