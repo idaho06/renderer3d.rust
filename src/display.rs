@@ -162,22 +162,11 @@ impl Display {
 
     pub fn streaming_buffer_to_canvas(&mut self, name: &str) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
-            // let width = streaming_buffer.texture.query().width;
-            // streaming_buffer
-            //     .texture
-            //     .update(
-            //         None,
-            //         streaming_buffer.color_buffer.as_byte_slice(),
-            //         width as usize * 4,
-            //     )
-            //     .unwrap();
-
+            let width = streaming_buffer.texture.query().width;
+            let pitch = width as usize * std::mem::size_of::<u32>();
             streaming_buffer
                 .texture
-                //streaming_texture
-                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-                    buffer.copy_from_slice(&streaming_buffer.color_buffer);
-                })
+                .update(None, &streaming_buffer.color_buffer, pitch)
                 .unwrap();
 
             self.canvas
@@ -188,17 +177,11 @@ impl Display {
 
     pub fn color_buffer_to_canvas(&mut self, name: &str, color_buffer: &[u8]) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
-            // let width = streaming_buffer.texture.query().width;
-            // streaming_buffer
-            //     .texture
-            //     .update(None, color_buffer, width as usize * 4)
-            //     .unwrap();
+            let width = streaming_buffer.texture.query().width;
+            let pitch = width as usize * std::mem::size_of::<u32>();
             streaming_buffer
                 .texture
-                //streaming_texture
-                .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-                    buffer.copy_from_slice(color_buffer);
-                })
+                .update(None, color_buffer, pitch)
                 .unwrap();
             self.canvas
                 .copy(&streaming_buffer.texture, None, None)
