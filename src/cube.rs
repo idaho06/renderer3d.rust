@@ -197,7 +197,7 @@ impl Cube {
 // implement the scene trait for the cube
 impl Scene for Cube {
     fn update(&mut self, delta_time: u32, display: &Display, _scene: &Option<Sequence>) {
-        optick::event!();
+
         self.now_time += delta_time;
         let time_factor = delta_time as f32 / 1000.0;
 
@@ -348,28 +348,14 @@ impl Scene for Cube {
             projected_vertex2.y *= -1.0;
             projected_vertex3.y *= -1.0;
 
-            // save the w component for the perspective divide
-            let w1 = projected_vertex1.w;
-            let w2 = projected_vertex2.w;
-            let w3 = projected_vertex3.w;
-
-            // Perspective divide
-            let mut perspective_vertex1 = projected_vertex1 / w1;
-            let mut perspective_vertex2 = projected_vertex2 / w2;
-            let mut perspective_vertex3 = projected_vertex3 / w3;
-
-            // restore the w component for the screen mapping
-            perspective_vertex1.w = w1;
-            perspective_vertex2.w = w2;
-            perspective_vertex3.w = w3;
-
-            // Homogeneous coordinate clipping
-            // 1.- Create a triangle with the perspective vertex and the uvs. Create a vector of triangles with the triangle.
-            let perspective_triangle = Triangle::from_vertices_uv(
+            // Clip in clip space (before perspective divide) to avoid
+            // divide-by-zero for vertices behind the camera and to get
+            // correct W interpolation at clip boundaries.
+            let clip_triangle = Triangle::from_vertices_uv(
                 [
-                    perspective_vertex1,
-                    perspective_vertex2,
-                    perspective_vertex3,
+                    projected_vertex1,
+                    projected_vertex2,
+                    projected_vertex3,
                 ],
                 [
                     self.mesh.uvs[face.uvs[0]],
@@ -377,7 +363,7 @@ impl Scene for Cube {
                     self.mesh.uvs[face.uvs[2]],
                 ],
             );
-            let mut perspective_triangles = vec![perspective_triangle];
+            let mut perspective_triangles = vec![clip_triangle];
 
             // 2.- pop triangles from perspective_triangles, clip the triangle and push the resulting triangles to perspective_triangles_clip_w
             let mut perspective_triangles_clip_w: Vec<Triangle> = Vec::new();
@@ -507,14 +493,30 @@ impl Scene for Cube {
                 continue;
             }
 
-            // 4.- Transform the triangles to screen space
+            // 4.- Perspective divide (after clipping, so W is always positive)
+            //     then transform to screen space
 
             let screen_triangles = perspective_triangles_clip_wxyz_nxnynz
             .into_iter()
-            .map(|perspective_triangle_clipped| {
-                let mut screen_vertex1 = perspective_triangle_clipped.vertices[0];
-                let mut screen_vertex2 = perspective_triangle_clipped.vertices[1];
-                let mut screen_vertex3 = perspective_triangle_clipped.vertices[2];
+            .map(|clipped_triangle| {
+                let mut screen_vertex1 = clipped_triangle.vertices[0];
+                let mut screen_vertex2 = clipped_triangle.vertices[1];
+                let mut screen_vertex3 = clipped_triangle.vertices[2];
+
+                // Perspective divide: x,y,z /= w (keep w for rasterizer)
+                let w1 = screen_vertex1.w;
+                let w2 = screen_vertex2.w;
+                let w3 = screen_vertex3.w;
+                screen_vertex1.x /= w1;
+                screen_vertex1.y /= w1;
+                screen_vertex1.z /= w1;
+                screen_vertex2.x /= w2;
+                screen_vertex2.y /= w2;
+                screen_vertex2.z /= w2;
+                screen_vertex3.x /= w3;
+                screen_vertex3.y /= w3;
+                screen_vertex3.z /= w3;
+
                 // Transform x and y to screen space
                 screen_vertex1.x = (screen_vertex1.x + 1.0) * self.width as f32 / 2.0;
                 screen_vertex1.y = (screen_vertex1.y + 1.0) * self.height as f32 / 2.0;
@@ -526,23 +528,17 @@ impl Scene for Cube {
                 // calculate face color based on the light direction and the normal of the face
                 let face_color = render::calculate_face_color(
                     self.light_dir,
-                    //triangle.normal,
                     self.transformed_triangles.last().unwrap().normal,
-                    perspective_triangle_clipped.color,
+                    clipped_triangle.color,
                 );
 
-                // push screen space vertices
                 Triangle::from_vertices_uvs_normal_color(
                     [screen_vertex1, screen_vertex2, screen_vertex3],
                     [
-                        // self.mesh.uvs[face.uvs[0]],
-                        // self.mesh.uvs[face.uvs[1]],
-                        // self.mesh.uvs[face.uvs[2]],
-                        perspective_triangle_clipped.uvs[0],
-                        perspective_triangle_clipped.uvs[1],
-                        perspective_triangle_clipped.uvs[2],
+                        clipped_triangle.uvs[0],
+                        clipped_triangle.uvs[1],
+                        clipped_triangle.uvs[2],
                     ],
-                    //triangle.normal,
                     self.transformed_triangles.last().unwrap().normal,
                     face_color,
                 )
@@ -668,7 +664,7 @@ impl Scene for Cube {
     }
 
     fn render(&self, display: &mut Display) {
-        optick::event!();
+
         //display.streaming_buffer_to_canvas(self.buffer_name.as_str());
         display.color_buffer_to_canvas("cube", &self.color_buffer);
     }
