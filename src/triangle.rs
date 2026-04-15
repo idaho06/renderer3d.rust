@@ -13,6 +13,7 @@ pub struct Face {
     pub color: Color,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Triangle {
     pub vertices: [Vec4; 3],
     pub center: Vec4,
@@ -71,6 +72,20 @@ impl Triangle {
             vertices,
             center,
             uvs: [Vec2::ZERO; 3],
+            normal,
+            color: Color::WHITE,
+        }
+    }
+    // triangle contructor with only three Vec4 vertices and uvs. No normal calculated
+    pub fn from_vertices_uv(vertices: [Vec4; 3], uvs: [Vec2; 3]) -> Self {
+        let normal = Vec3::ZERO;
+        // calculate center of the triangle
+        let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
+        //
+        Self {
+            vertices,
+            center,
+            uvs,
             normal,
             color: Color::WHITE,
         }

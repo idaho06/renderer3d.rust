@@ -282,7 +282,7 @@ pub fn draw_2dline_to_color_buffer(
     height: u32,
     color: &Color,
 ) {
-    optick::event!();
+
     // get integer coordinates from point1 and point2
     let x0 = point1.x as i32;
     let y0 = point1.y as i32;
@@ -363,7 +363,7 @@ pub fn draw_2dtriangle_to_color_buffer(
     width: u32,
     height: u32
 ) {
-    optick::event!();
+
     // extract x and y of the vertices of the triangle
     let x0 = triangle2d.vertices[0].x as i32;
     let y0 = triangle2d.vertices[0].y as i32;

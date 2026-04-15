@@ -73,7 +73,7 @@ impl Fire {
 
     // method to seed the fire_buffer randomly in the bottom row
     fn seed(&mut self) {
-        optick::event!();
+
         for x in 0..self.width {
             let index = (x + (self.width * (self.height - 1))) as usize;
             //self.fire_buffer[index] = rand::random::<u8>() % 36;
@@ -82,7 +82,7 @@ impl Fire {
     }
 
     fn update_fire_buffer(&mut self) {
-        optick::event!();
+
         for x in 0..self.width {
             for y in 0..self.height {
                 let index = (x + (self.width * y)) as usize;
@@ -103,7 +103,7 @@ impl Fire {
         }
     }
     fn update_color_buffer(&mut self) {
-        optick::event!();
+
         //let pixelformat = PixelFormat::try_from(sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
         let color_buffer_u32 = self.color_buffer.as_mut_slice_of::<u32>().unwrap();
         // for index in 0..self.fire_buffer.len() {
@@ -140,7 +140,7 @@ impl Fire {
 // implement Scene for Fire
 impl Scene for Fire {
     fn update(&mut self, _t: u32, _display: &Display, _scene: &Option<Sequence>) {
-        optick::event!();
+
         self.seed();
         // update fire_buffer
         self.update_fire_buffer();
@@ -149,7 +149,7 @@ impl Scene for Fire {
     }
 
     fn render(&self, display: &mut Display) {
-        optick::event!();
+
         display.color_buffer_to_canvas("fire", &self.color_buffer);
     }
 }

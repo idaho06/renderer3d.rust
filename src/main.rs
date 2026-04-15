@@ -18,7 +18,7 @@ fn main() -> Result<(), String> {
     let mut fire = Fire::new(&mut display);
     let mut cube = Cube::new(&mut display);
 
-    optick::start_capture();
+
     'running: loop {
         frame += 1;
         frame_time = display.get_frame_time();
@@ -42,6 +42,6 @@ fn main() -> Result<(), String> {
         last_frame_delta = display.get_frame_time() - frame_time;
         if frame > 60*25 { break; }
     }
-    optick::stop_capture("./profile/render3d");
+
     Ok(())
 }

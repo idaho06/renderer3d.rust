@@ -7,6 +7,11 @@ use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 //use sdl2::pixels::Color;
 
 use crate::{
+    clipping::{
+        clip_triangle_w_axis, clip_triangle_x_axis, clip_triangle_y_axis, clip_triangle_z_axis,
+        clip_triangle_nx_axis, clip_triangle_ny_axis, clip_triangle_nz_axis,
+        TriangleClipResult,
+    },
     display::Display,
     mesh::Mesh,
     render::{self, Render},
@@ -154,8 +159,8 @@ impl Cube {
         // ];
         let transformed_triangles = Vec::<Triangle>::with_capacity(mesh.faces.len());
         let screen_triangles = Vec::<Triangle>::with_capacity(mesh.faces.len());
-        let width = 640;
-        let height = 360;
+        let width = 640*2;
+        let height = 360*2;
         display.add_streaming_buffer("cube", width, height);
         let z_buffer = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
         //let z_buffer_clear = vec![0.0_f32; (width * height) as usize].into_boxed_slice();
@@ -192,7 +197,7 @@ impl Cube {
 // implement the scene trait for the cube
 impl Scene for Cube {
     fn update(&mut self, delta_time: u32, display: &Display, _scene: &Option<Sequence>) {
-        optick::event!();
+
         self.now_time += delta_time;
         let time_factor = delta_time as f32 / 1000.0;
 
@@ -217,7 +222,7 @@ impl Scene for Cube {
         }
 
         // update mesh
-        self.mesh.rotation.x = -(PI / 2.0);
+        //self.mesh.rotation.x = -(PI / 2.0);
         //self.mesh.rotation.y += 0.25 * time_factor;
         //self.mesh.rotation.z += 0.5 * time_factor;
 
@@ -257,13 +262,10 @@ impl Scene for Cube {
         // TODO: Model clipping goes here.
         // We will use distances from the center of the model to the frustum planes
         // to decide if the mesh is inside the frustum or not.
+        // TODO: Define the frustum planes
         // TODO: Calculate mesh center and maximum radius
         // TODO: Transform the center of the mesh and the radius to camera space
-        // TODO: Check if the mesh is inside the frustum 
-
-        // clear the projected triangles vector
-        self.transformed_triangles.clear(); // this is equivalent to .truncate(0)
-        self.screen_triangles.clear(); // this is equivalent to .truncate(0)
+        // TODO: Check if the mesh is inside the frustum
 
         ///////////////////////////////////////////////////////////////////////////////
         // Process the graphics pipeline stages for all the mesh triangles
@@ -291,14 +293,18 @@ impl Scene for Cube {
         //                             +--------------+
         ///////////////////////////////////////////////////////////////////////////////
 
-        // for each face of the mesh...
+        // clear the projected triangles vector
+        self.transformed_triangles.clear(); // this is equivalent to .truncate(0)
+        self.screen_triangles.clear(); // this is equivalent to .truncate(0)
+
+        // loop faces to transform them to screen space and clip them
         for face in self.mesh.faces.iter() {
             // get the three vertices of the face
             let vertex1 = self.mesh.vertices[face.vertices[0]];
             let vertex2 = self.mesh.vertices[face.vertices[1]];
             let vertex3 = self.mesh.vertices[face.vertices[2]];
 
-            // transform vertices to screen space
+            //Get Vec4 vertices
             let vertex1 = Vec4::new(vertex1.x, vertex1.y, vertex1.z, 1.0);
             let vertex2 = Vec4::new(vertex2.x, vertex2.y, vertex2.z, 1.0);
             let vertex3 = Vec4::new(vertex3.x, vertex3.y, vertex3.z, 1.0);
@@ -342,57 +348,278 @@ impl Scene for Cube {
             projected_vertex2.y *= -1.0;
             projected_vertex3.y *= -1.0;
 
-            // do perspective division and screen mapping
-            let screen_vertex1 = Vec4::new(
-                (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex1.y / projected_vertex1.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex1.z / projected_vertex1.w,
-                projected_vertex1.w,
-            );
-            let screen_vertex2 = Vec4::new(
-                (projected_vertex2.x / projected_vertex2.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex2.y / projected_vertex2.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex2.z / projected_vertex2.w,
-                projected_vertex2.w,
-            );
-            let screen_vertex3 = Vec4::new(
-                (projected_vertex3.x / projected_vertex3.w) * self.width as f32 / 2.0
-                    + self.width as f32 / 2.0,
-                (projected_vertex3.y / projected_vertex3.w) * self.height as f32 / 2.0
-                    + self.height as f32 / 2.0,
-                projected_vertex3.z / projected_vertex3.w,
-                projected_vertex3.w,
-            );
-
-            // calculate face color based on the light direction and the normal of the face
-            let face_color = render::calculate_face_color(
-                self.light_dir,
-                self.transformed_triangles.last().unwrap().normal,
-                face.color,
-            );
-
-            // push screen space vertices
-            let screen_triangle = Triangle::from_vertices_uvs_normal_color(
-                [screen_vertex1, screen_vertex2, screen_vertex3],
+            // Clip in clip space (before perspective divide) to avoid
+            // divide-by-zero for vertices behind the camera and to get
+            // correct W interpolation at clip boundaries.
+            let clip_triangle = Triangle::from_vertices_uv(
+                [
+                    projected_vertex1,
+                    projected_vertex2,
+                    projected_vertex3,
+                ],
                 [
                     self.mesh.uvs[face.uvs[0]],
                     self.mesh.uvs[face.uvs[1]],
                     self.mesh.uvs[face.uvs[2]],
                 ],
-                self.transformed_triangles.last().unwrap().normal,
-                face_color,
             );
-            self.screen_triangles.push(screen_triangle);
+            let mut perspective_triangles = vec![clip_triangle];
+
+            // 2.- pop triangles from perspective_triangles, clip the triangle and push the resulting triangles to perspective_triangles_clip_w
+            let mut perspective_triangles_clip_w: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles.pop() {
+                let mut result = clip_triangle_w_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_w.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_w.push(triangle1);
+                        perspective_triangles_clip_w.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_w.len() == 0 {
+                continue;
+            }
+
+            // 3.- repeat same process for x, y and z axis
+            let mut perspective_triangles_clip_wx: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_w.pop() {
+                let mut result = clip_triangle_x_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wx.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wx.push(triangle1);
+                        perspective_triangles_clip_wx.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wx.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxy: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wx.pop() {
+                let mut result = clip_triangle_y_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxy.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxy.push(triangle1);
+                        perspective_triangles_clip_wxy.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxy.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxyz: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wxy.pop() {
+                let mut result = clip_triangle_z_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxyz.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxyz.push(triangle1);
+                        perspective_triangles_clip_wxyz.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxyz.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxyz_nx: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wxyz.pop() {
+                let mut result = clip_triangle_nx_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxyz_nx.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxyz_nx.push(triangle1);
+                        perspective_triangles_clip_wxyz_nx.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxyz_nx.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxyz_nxny: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wxyz_nx.pop() {
+                let mut result = clip_triangle_ny_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxyz_nxny.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxyz_nxny.push(triangle1);
+                        perspective_triangles_clip_wxyz_nxny.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxyz_nxny.len() == 0 {
+                continue;
+            }
+
+            let mut perspective_triangles_clip_wxyz_nxnynz: Vec<Triangle> = Vec::new();
+            while let Some(triangle) = perspective_triangles_clip_wxyz_nxny.pop() {
+                let mut result = clip_triangle_nz_axis(triangle);
+                match result {
+                    TriangleClipResult::OneTriangle(triangle) => {
+                        perspective_triangles_clip_wxyz_nxnynz.push(triangle);
+                    }
+                    TriangleClipResult::TwoTriangles(triangle1, triangle2) => {
+                        perspective_triangles_clip_wxyz_nxnynz.push(triangle1);
+                        perspective_triangles_clip_wxyz_nxnynz.push(triangle2);
+                    }
+                    TriangleClipResult::NoTriangle => {}
+                }
+            }
+            if perspective_triangles_clip_wxyz_nxnynz.len() == 0 {
+                continue;
+            }
+
+            // 4.- Perspective divide (after clipping, so W is always positive)
+            //     then transform to screen space
+
+            let screen_triangles = perspective_triangles_clip_wxyz_nxnynz
+            .into_iter()
+            .map(|clipped_triangle| {
+                let mut screen_vertex1 = clipped_triangle.vertices[0];
+                let mut screen_vertex2 = clipped_triangle.vertices[1];
+                let mut screen_vertex3 = clipped_triangle.vertices[2];
+
+                // Perspective divide: x,y,z /= w (keep w for rasterizer)
+                let w1 = screen_vertex1.w;
+                let w2 = screen_vertex2.w;
+                let w3 = screen_vertex3.w;
+                screen_vertex1.x /= w1;
+                screen_vertex1.y /= w1;
+                screen_vertex1.z /= w1;
+                screen_vertex2.x /= w2;
+                screen_vertex2.y /= w2;
+                screen_vertex2.z /= w2;
+                screen_vertex3.x /= w3;
+                screen_vertex3.y /= w3;
+                screen_vertex3.z /= w3;
+
+                // Transform x and y to screen space
+                screen_vertex1.x = (screen_vertex1.x + 1.0) * self.width as f32 / 2.0;
+                screen_vertex1.y = (screen_vertex1.y + 1.0) * self.height as f32 / 2.0;
+                screen_vertex2.x = (screen_vertex2.x + 1.0) * self.width as f32 / 2.0;
+                screen_vertex2.y = (screen_vertex2.y + 1.0) * self.height as f32 / 2.0;
+                screen_vertex3.x = (screen_vertex3.x + 1.0) * self.width as f32 / 2.0;
+                screen_vertex3.y = (screen_vertex3.y + 1.0) * self.height as f32 / 2.0;
+                
+                // calculate face color based on the light direction and the normal of the face
+                let face_color = render::calculate_face_color(
+                    self.light_dir,
+                    self.transformed_triangles.last().unwrap().normal,
+                    clipped_triangle.color,
+                );
+
+                Triangle::from_vertices_uvs_normal_color(
+                    [screen_vertex1, screen_vertex2, screen_vertex3],
+                    [
+                        clipped_triangle.uvs[0],
+                        clipped_triangle.uvs[1],
+                        clipped_triangle.uvs[2],
+                    ],
+                    self.transformed_triangles.last().unwrap().normal,
+                    face_color,
+                )
+            })
+            .collect::<Vec<Triangle>>();
+            
+
+            // // Transform x and y to screen space
+            // let screen_vertex1 = Vec4::new(
+            //     (perspective_vertex1.x + 1.0) * self.width as f32 / 2.0,
+            //     (perspective_vertex1.y + 1.0) * self.height as f32 / 2.0,
+            //     perspective_vertex1.z,
+            //     perspective_vertex1.w,
+            // );
+            // let screen_vertex2 = Vec4::new(
+            //     (perspective_vertex2.x + 1.0) * self.width as f32 / 2.0,
+            //     (perspective_vertex2.y + 1.0) * self.height as f32 / 2.0,
+            //     perspective_vertex2.z,
+            //     perspective_vertex2.w,
+            // );
+            // let screen_vertex3 = Vec4::new(
+            //     (perspective_vertex3.x + 1.0) * self.width as f32 / 2.0,
+            //     (perspective_vertex3.y + 1.0) * self.height as f32 / 2.0,
+            //     perspective_vertex3.z,
+            //     perspective_vertex3.w,
+            // );
+
+            // // do perspective division and screen mapping
+            // // let screen_vertex1 = Vec4::new(
+            // //     (projected_vertex1.x / projected_vertex1.w) * self.width as f32 / 2.0
+            // //         + self.width as f32 / 2.0,
+            // //     (projected_vertex1.y / projected_vertex1.w) * self.height as f32 / 2.0
+            // //         + self.height as f32 / 2.0,
+            // //     projected_vertex1.z / projected_vertex1.w,
+            // //     projected_vertex1.w,
+            // // );
+            // // let screen_vertex2 = Vec4::new(
+            // //     (projected_vertex2.x / projected_vertex2.w) * self.width as f32 / 2.0
+            // //         + self.width as f32 / 2.0,
+            // //     (projected_vertex2.y / projected_vertex2.w) * self.height as f32 / 2.0
+            // //         + self.height as f32 / 2.0,
+            // //     projected_vertex2.z / projected_vertex2.w,
+            // //     projected_vertex2.w,
+            // // );
+            // // let screen_vertex3 = Vec4::new(
+            // //     (projected_vertex3.x / projected_vertex3.w) * self.width as f32 / 2.0
+            // //         + self.width as f32 / 2.0,
+            // //     (projected_vertex3.y / projected_vertex3.w) * self.height as f32 / 2.0
+            // //         + self.height as f32 / 2.0,
+            // //     projected_vertex3.z / projected_vertex3.w,
+            // //     projected_vertex3.w,
+            // // );
+
+            // // calculate face color based on the light direction and the normal of the face
+            // let face_color = render::calculate_face_color(
+            //     self.light_dir,
+            //     self.transformed_triangles.last().unwrap().normal,
+            //     face.color,
+            // );
+
+            // // push screen space vertices
+            // let screen_triangle = Triangle::from_vertices_uvs_normal_color(
+            //     [screen_vertex1, screen_vertex2, screen_vertex3],
+            //     [
+            //         self.mesh.uvs[face.uvs[0]],
+            //         self.mesh.uvs[face.uvs[1]],
+            //         self.mesh.uvs[face.uvs[2]],
+            //     ],
+            //     self.transformed_triangles.last().unwrap().normal,
+            //     face_color,
+            // );
+            // self.screen_triangles.push(screen_triangle);
+            self.screen_triangles.extend(screen_triangles);
         }
         // sort screen triangles by depth
         self.screen_triangles
             .sort_unstable_by(|a, b| a.center.z.partial_cmp(&b.center.z).unwrap());
 
         // clear color buffer and z buffer
+        // TODO: move buffer clearing to a separate function
+        // TODO: Call clear function in parallel to the present_canvas() function
         self.color_buffer.fill(0_u8);
         self.z_buffer.fill(0.0_f32);
         //self.color_buffer.iter_mut().for_each(|x| *x = 0_u8);
@@ -437,7 +664,7 @@ impl Scene for Cube {
     }
 
     fn render(&self, display: &mut Display) {
-        optick::event!();
+
         //display.streaming_buffer_to_canvas(self.buffer_name.as_str());
         display.color_buffer_to_canvas("cube", &self.color_buffer);
     }
