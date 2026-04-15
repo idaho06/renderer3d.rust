@@ -39,10 +39,7 @@ pub fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.z)
 }
 
-fn clip_triangle_on_plane<F>(
-    triangle: Triangle,
-    signed_distance: F,
-) -> TriangleClipResult
+fn clip_triangle_on_plane<F>(triangle: Triangle, signed_distance: F) -> TriangleClipResult
 where
     F: Fn(&Vec4) -> f32,
 {
@@ -120,12 +117,7 @@ mod tests {
     use sdl2::pixels::Color;
 
     fn make_triangle(verts: [Vec4; 3], uvs: [Vec2; 3]) -> Triangle {
-        Triangle::from_vertices_uvs_normal_color(
-            verts,
-            uvs,
-            Vec3::new(0.0, 0.0, 1.0),
-            Color::WHITE,
-        )
+        Triangle::from_vertices_uvs_normal_color(verts, uvs, Vec3::new(0.0, 0.0, 1.0), Color::WHITE)
     }
 
     #[test]
@@ -136,7 +128,11 @@ mod tests {
                 Vec4::new(1.0, 0.0, 0.0, 1.0),
                 Vec4::new(0.0, 1.0, 0.0, 1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_w_axis(tri) {
             TriangleClipResult::OneTriangle(t) => {
@@ -156,7 +152,11 @@ mod tests {
                 Vec4::new(1.0, 0.0, 0.0, -1.0),
                 Vec4::new(0.0, 1.0, 0.0, 1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_w_axis(tri) {
             TriangleClipResult::OneTriangle(_) => {}
@@ -172,7 +172,11 @@ mod tests {
                 Vec4::new(1.0, 0.0, 0.0, 1.0),
                 Vec4::new(0.0, 1.0, 0.0, 1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_w_axis(tri) {
             TriangleClipResult::TwoTriangles(_, _) => {}
@@ -188,7 +192,11 @@ mod tests {
                 Vec4::new(1.0, 0.0, 0.0, -1.0),
                 Vec4::new(0.0, 1.0, 0.0, -1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_w_axis(tri) {
             TriangleClipResult::NoTriangle => {}
@@ -205,7 +213,11 @@ mod tests {
                 Vec4::new(-2.0, 0.0, 0.0, 1.0),
                 Vec4::new(-2.5, 1.0, 0.0, 1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_x_axis(tri) {
             TriangleClipResult::NoTriangle => {}
@@ -222,7 +234,11 @@ mod tests {
                 Vec4::new(-2.0, 0.0, 0.0, 1.0),
                 Vec4::new(0.0, 1.0, 0.0, 1.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_x_axis(tri) {
             TriangleClipResult::OneTriangle(t) => {
@@ -246,7 +262,11 @@ mod tests {
                 Vec4::new(1.0, 0.0, 0.5, 2.0),
                 Vec4::new(0.0, 1.0, 0.5, 2.0),
             ],
-            [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.0, 1.0),
+            ],
         );
         match clip_triangle_w_axis(tri) {
             TriangleClipResult::TwoTriangles(t1, _t2) => {

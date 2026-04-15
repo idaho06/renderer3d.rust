@@ -75,5 +75,4 @@ impl UserInput {
         self.mouse.right.changed = false;
         self.mouse.middle.changed = false;
     }
-    
 }

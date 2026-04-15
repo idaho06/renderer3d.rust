@@ -2,13 +2,13 @@ use crate::userinput::UserInput;
 use byte_slice_cast::AsMutSliceOf;
 use rustc_hash::FxHashMap;
 use sdl2::{
+    EventPump, Sdl,
     event::Event,
     keyboard::Keycode,
     mouse::MouseButton,
     pixels::Color,
     render::{Canvas, Texture},
     video::Window,
-    EventPump, Sdl,
 };
 
 use crate::point::Pixel;
@@ -111,7 +111,6 @@ impl Display {
         //self.canvas.present();
     }
     pub fn present_canvas(&mut self) {
-
         self.canvas.present();
     }
     pub fn get_event_pump(&self) -> EventPump {
@@ -130,7 +129,6 @@ impl Display {
     }
 
     pub fn add_streaming_buffer(&mut self, name: &str, width: u32, height: u32) {
-
         let mut texture = self
             .canvas
             .create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)
@@ -147,7 +145,6 @@ impl Display {
     }
 
     pub fn clear_streaming_buffer(&mut self, name: &str, color: Color) {
-
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let a = color.a;
             let r = color.r;
@@ -164,7 +161,6 @@ impl Display {
     }
 
     pub fn streaming_buffer_to_canvas(&mut self, name: &str) {
-
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             // let width = streaming_buffer.texture.query().width;
             // streaming_buffer
@@ -180,7 +176,6 @@ impl Display {
                 .texture
                 //streaming_texture
                 .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
-
                     buffer.copy_from_slice(&streaming_buffer.color_buffer);
                 })
                 .unwrap();
@@ -192,7 +187,6 @@ impl Display {
     }
 
     pub fn color_buffer_to_canvas(&mut self, name: &str, color_buffer: &[u8]) {
-
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             // let width = streaming_buffer.texture.query().width;
             // streaming_buffer
@@ -213,7 +207,6 @@ impl Display {
     }
 
     pub fn put_pixel_queue(&mut self, name: &str, pixel_queue: &[Pixel]) {
-
         // replaced "&Vec<Pixel>" with "&[Pixel]" ==> huge performance gain!!
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let width = streaming_buffer.texture.query().width;

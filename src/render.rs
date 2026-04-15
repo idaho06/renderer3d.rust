@@ -4,15 +4,13 @@ use sdl2::pixels::Color;
 
 use crate::triangle::{Triangle, TriangleScreenPixel};
 
-pub struct Render {
-}
+pub struct Render {}
 
 impl Render {
     pub fn new(cb_width: u32, cb_height: u32) -> Self {
         let _cb_height = cb_height as usize;
         let _cb_width = cb_width as usize;
-        Self {
-        }
+        Self {}
     }
 
     // implement draw_3dtriangle_to_color_buffer
@@ -26,92 +24,120 @@ impl Render {
         texture: &[u8],
         t_width: u32,
         t_height: u32,
-        z_buffer: &mut [f32]
-        ) {
-            //optick::event!();
-            let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
-            // reorder the triangle vertices by the y coordinate
-            let triangle3d = triangle3d.reorder_vertices_by_y();
-            // assuming the longest segment is v0 to v2
-            // we calculate the segments:
-            // v0 to v1 and v1 to v2
-            // v0 to v2
-            let v0 = triangle3d.vertices[0];
-            let v1 = triangle3d.vertices[1];
-            let v2 = triangle3d.vertices[2];
-            let uv0 = triangle3d.uvs[0];
-            let uv1 = triangle3d.uvs[1];
-            let uv2 = triangle3d.uvs[2];
-        
-            // round x and y coordinates to integers for v0, v1 and v2 and let the rest be floats
-            let v0 = Vec4::new(v0.x.round(), v0.y.round(), v0.z, v0.w);
-            let v1 = Vec4::new(v1.x.round(), v1.y.round(), v1.z, v1.w);
-            let v2 = Vec4::new(v2.x.round(), v2.y.round(), v2.z, v2.w);
+        z_buffer: &mut [f32],
+    ) {
+        //optick::event!();
+        let color_buffer_u32 = color_buffer.as_mut_slice_of::<u32>().unwrap();
+        // reorder the triangle vertices by the y coordinate
+        let triangle3d = triangle3d.reorder_vertices_by_y();
+        // assuming the longest segment is v0 to v2
+        // we calculate the segments:
+        // v0 to v1 and v1 to v2
+        // v0 to v2
+        let v0 = triangle3d.vertices[0];
+        let v1 = triangle3d.vertices[1];
+        let v2 = triangle3d.vertices[2];
+        let uv0 = triangle3d.uvs[0];
+        let uv1 = triangle3d.uvs[1];
+        let uv2 = triangle3d.uvs[2];
 
-            let corner_segment1_iter = map_interpolate_float_vec4_iter(
-                v0.y, 
-                Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w), 
-                v1.y, 
-                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w))
-                .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
-            let corner_segment2_iter = map_interpolate_float_vec4_iter(
-                v1.y, 
-                Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w), 
-                v2.y, 
-                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w))
-                .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
-            let corner_segments_iter = corner_segment1_iter.chain(corner_segment2_iter.skip(1));
-        
-            let straight_segment_iter = map_interpolate_float_vec4_iter(
-                v0.y, 
-                Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
-                v2.y, 
-                Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w))
-                .map(|(y, xwuv)| TriangleScreenPixel{x: xwuv.x.round(), y, reciprocal_w: xwuv.y, u_divided_w: xwuv.z, v_divided_w: xwuv.w});
+        // round x and y coordinates to integers for v0, v1 and v2 and let the rest be floats
+        let v0 = Vec4::new(v0.x.round(), v0.y.round(), v0.z, v0.w);
+        let v1 = Vec4::new(v1.x.round(), v1.y.round(), v1.z, v1.w);
+        let v2 = Vec4::new(v2.x.round(), v2.y.round(), v2.z, v2.w);
 
-            straight_segment_iter
-                .zip(corner_segments_iter)
-                .for_each(|(straight_segment_pixel, corner_segment_pixel)| {
-                    let start_x = straight_segment_pixel.x;
-                    let end_x = corner_segment_pixel.x;
-                    let start_w = straight_segment_pixel.reciprocal_w;
-                    let end_w = corner_segment_pixel.reciprocal_w;
-                    let start_u = straight_segment_pixel.u_divided_w;
-                    let end_u = corner_segment_pixel.u_divided_w;
-                    let start_v = straight_segment_pixel.v_divided_w;
-                    let end_v = corner_segment_pixel.v_divided_w;
-                    let y = straight_segment_pixel.y;
-        
-                    let horizontal_segment_iter = map_interpolate_float_vec4_iter(
-                        start_x, 
-                        Vec4::new(y, start_w, start_u, start_v), 
-                        end_x, 
-                        Vec4::new(y, end_w, end_u, end_v))
-                        .map(|(x, v)| TriangleScreenPixel{x, y, reciprocal_w: v.y, u_divided_w: v.z, v_divided_w: v.w});
+        let corner_segment1_iter = map_interpolate_float_vec4_iter(
+            v0.y,
+            Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
+            v1.y,
+            Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w),
+        )
+        .map(|(y, xwuv)| TriangleScreenPixel {
+            x: xwuv.x.round(),
+            y,
+            reciprocal_w: xwuv.y,
+            u_divided_w: xwuv.z,
+            v_divided_w: xwuv.w,
+        });
+        let corner_segment2_iter = map_interpolate_float_vec4_iter(
+            v1.y,
+            Vec4::new(v1.x, 1.0 / v1.w, uv1.x / v1.w, uv1.y / v1.w),
+            v2.y,
+            Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w),
+        )
+        .map(|(y, xwuv)| TriangleScreenPixel {
+            x: xwuv.x.round(),
+            y,
+            reciprocal_w: xwuv.y,
+            u_divided_w: xwuv.z,
+            v_divided_w: xwuv.w,
+        });
+        let corner_segments_iter = corner_segment1_iter.chain(corner_segment2_iter.skip(1));
 
-                    horizontal_segment_iter
-                    .filter(|horizontal_segment_pixel| 
-                        horizontal_segment_pixel.x >= 0.0_f32 && 
-                        horizontal_segment_pixel.x < cb_width as f32 &&
-                        horizontal_segment_pixel.y >= 0.0_f32 &&
-                        horizontal_segment_pixel.y < cb_height as f32)
+        let straight_segment_iter = map_interpolate_float_vec4_iter(
+            v0.y,
+            Vec4::new(v0.x, 1.0 / v0.w, uv0.x / v0.w, uv0.y / v0.w),
+            v2.y,
+            Vec4::new(v2.x, 1.0 / v2.w, uv2.x / v2.w, uv2.y / v2.w),
+        )
+        .map(|(y, xwuv)| TriangleScreenPixel {
+            x: xwuv.x.round(),
+            y,
+            reciprocal_w: xwuv.y,
+            u_divided_w: xwuv.z,
+            v_divided_w: xwuv.w,
+        });
+
+        straight_segment_iter.zip(corner_segments_iter).for_each(
+            |(straight_segment_pixel, corner_segment_pixel)| {
+                let start_x = straight_segment_pixel.x;
+                let end_x = corner_segment_pixel.x;
+                let start_w = straight_segment_pixel.reciprocal_w;
+                let end_w = corner_segment_pixel.reciprocal_w;
+                let start_u = straight_segment_pixel.u_divided_w;
+                let end_u = corner_segment_pixel.u_divided_w;
+                let start_v = straight_segment_pixel.v_divided_w;
+                let end_v = corner_segment_pixel.v_divided_w;
+                let y = straight_segment_pixel.y;
+
+                let horizontal_segment_iter = map_interpolate_float_vec4_iter(
+                    start_x,
+                    Vec4::new(y, start_w, start_u, start_v),
+                    end_x,
+                    Vec4::new(y, end_w, end_u, end_v),
+                )
+                .map(|(x, v)| TriangleScreenPixel {
+                    x,
+                    y,
+                    reciprocal_w: v.y,
+                    u_divided_w: v.z,
+                    v_divided_w: v.w,
+                });
+
+                horizontal_segment_iter
+                    .filter(|horizontal_segment_pixel| {
+                        horizontal_segment_pixel.x >= 0.0_f32
+                            && horizontal_segment_pixel.x < cb_width as f32
+                            && horizontal_segment_pixel.y >= 0.0_f32
+                            && horizontal_segment_pixel.y < cb_height as f32
+                    })
                     .for_each(|horizontal_segment_pixel| {
                         //let x = horizontal_segment_pixel.x;
                         //let y = horizontal_segment_pixel.y;
                         let x: i32;
                         let y: i32;
-                        unsafe{
+                        unsafe {
                             x = horizontal_segment_pixel.x.to_int_unchecked();
                             y = horizontal_segment_pixel.y.to_int_unchecked();
                         }
                         let reciprocal_w = horizontal_segment_pixel.reciprocal_w;
                         //let z_buffer_w;
                         let z_index = y as usize * cb_width as usize + x as usize;
-                        assert!(z_index<z_buffer.len());
+                        assert!(z_index < z_buffer.len());
                         //unsafe {
                         let z_buffer_w = z_buffer[z_index];
                         //}
-                        
+
                         if reciprocal_w > z_buffer_w {
                             z_buffer[z_index] = reciprocal_w;
                             let u_divided_w = horizontal_segment_pixel.u_divided_w;
@@ -120,16 +146,18 @@ impl Render {
                             let u = u_divided_w * w;
                             let v = v_divided_w * w;
                             //let texture_color = get_texture_color_sdl2(texture, u, v, t_width, t_height); // <== this is slow!!
-                            let tr : &u8;
-                            let tg : &u8;
-                            let tb : &u8;
-                            let ta : &u8;
+                            let tr: &u8;
+                            let tg: &u8;
+                            let tb: &u8;
+                            let ta: &u8;
                             //unsafe {
                             //    (tr, tg, tb, ta) = get_texture_color_rgba_unsafe(texture, u, v, t_width, t_height);
                             //}
                             //let [tr, tg, tb, ta] = get_texture_color_u32(texture, u, v, t_width, t_height).to_be_bytes();
-                            (tr, tg, tb, ta) = get_texture_color_rgba(texture, u, v, t_width, t_height);
-                            let texture_color : Vec4 = Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
+                            (tr, tg, tb, ta) =
+                                get_texture_color_rgba(texture, u, v, t_width, t_height);
+                            let texture_color: Vec4 =
+                                Vec4::new(*ta as f32, *tr as f32, *tg as f32, *tb as f32); // <== this is slow!! because of the deref
                             // multiply color by triangle3d color
                             // let a = triangle3d.color.a as f32 / 255.0;
                             // let r = triangle3d.color.r as f32 / 255.0;
@@ -139,7 +167,7 @@ impl Render {
                             let r = triangle3d.color.r as f32;
                             let g = triangle3d.color.g as f32;
                             let b = triangle3d.color.b as f32;
-                            let triangle_color : Vec4 = Vec4::new(a, r, g, b);
+                            let triangle_color: Vec4 = Vec4::new(a, r, g, b);
                             // let color = Color::RGBA( //<== This is probably also slow
                             //     (tr as f32 * r ) as u8,
                             //     (tg as f32 * g ) as u8,
@@ -147,27 +175,37 @@ impl Render {
                             //     (ta as f32 * a) as u8,
                             // );
                             // let color: u32 = u32::from_be_bytes([
-                            //     (*ta as f32 * a) as u8, 
-                            //     (*tr as f32 * r ) as u8, 
-                            //     (*tg as f32 * g ) as u8, 
+                            //     (*ta as f32 * a) as u8,
+                            //     (*tr as f32 * r ) as u8,
+                            //     (*tg as f32 * g ) as u8,
                             //     (*tb as f32 * b ) as u8]); //ARGB8888
-                            let color : Vec4 = (texture_color) * (triangle_color / 255.0);
+                            let color: Vec4 = (texture_color) * (triangle_color / 255.0);
                             let [a, r, g, b] = color.to_array();
-                            let color :u32;
+                            let color: u32;
                             unsafe {
-                                color = u32::from_be_bytes([a.to_int_unchecked(), r.to_int_unchecked(), g.to_int_unchecked(), b.to_int_unchecked()]); //ARGB8888
+                                color = u32::from_be_bytes([
+                                    a.to_int_unchecked(),
+                                    r.to_int_unchecked(),
+                                    g.to_int_unchecked(),
+                                    b.to_int_unchecked(),
+                                ]); //ARGB8888
                             }
                             //color = u32::from_be_bytes([a as u8, r as u8, g as u8, b as u8]); //ARGB8888
 
-                            
-                            put_pixel_to_color_buffer(x, y, color, color_buffer_u32, cb_width, cb_height);
-                            
+                            put_pixel_to_color_buffer(
+                                x,
+                                y,
+                                color,
+                                color_buffer_u32,
+                                cb_width,
+                                cb_height,
+                            );
                         }
                     });
-                });
-        }
+            },
+        );
+    }
 }
-
 
 // i = interval. Always change in +1 or -1 steps
 // d = displacement. Fractional increment, rounded to integer.
@@ -262,7 +300,7 @@ fn map_interpolate_float_vec4_iter(
     let mut i = i0;
     let mut d = d0;
     std::iter::from_fn(move || {
-        let result = Some((i, d)); 
+        let result = Some((i, d));
         if (step == 1.0 && i > i1) || (step == -1.0 && i < i1) {
             None
         } else {
@@ -282,7 +320,6 @@ pub fn draw_2dline_to_color_buffer(
     height: u32,
     color: &Color,
 ) {
-
     // get integer coordinates from point1 and point2
     let x0 = point1.x as i32;
     let y0 = point1.y as i32;
@@ -312,8 +349,7 @@ pub fn draw_2dline_to_color_buffer(
                 //     let index = (*y * width as i32 + *x) as usize;
                 //     color_buffer_u32[index] = color_u32;
                 // }
-                put_pixel_to_color_buffer(*x, *y, color_u32, color_buffer_u32, width, height)
-            );
+                put_pixel_to_color_buffer(*x, *y, color_u32, color_buffer_u32, width, height));
     } else {
         // vertical-ish
         /* for (y, x) in self.interpolate_int(y0, x0, y1, x1).iter() {
@@ -329,10 +365,8 @@ pub fn draw_2dline_to_color_buffer(
                 //     let index = (*y * width as i32 + *x) as usize;
                 //     color_buffer_u32[index] = color_u32;
                 // }
-                put_pixel_to_color_buffer(*x, *y, color_u32, color_buffer_u32, width, height)
-            );
+                put_pixel_to_color_buffer(*x, *y, color_u32, color_buffer_u32, width, height));
     }
-
 }
 
 // put pixel in the color buffer using x, y, color in u32, color_buffer in &[u32], width and height
@@ -346,7 +380,6 @@ pub fn put_pixel_to_color_buffer(
     height: u32,
 ) {
     if x < 0 || x > (width - 1) as i32 || y < 0 || y > (height - 1) as i32 {
-                    
     } else {
         let index = (y * width as i32 + x) as usize;
         //assert!(index<color_buffer.len());
@@ -354,16 +387,13 @@ pub fn put_pixel_to_color_buffer(
     }
 }
 
-
-
 // draw a filled 2d triangle to the passed color buffer
 pub fn draw_2dtriangle_to_color_buffer(
     triangle2d: &Triangle,
     color_buffer: &mut [u8],
     width: u32,
-    height: u32
+    height: u32,
 ) {
-
     // extract x and y of the vertices of the triangle
     let x0 = triangle2d.vertices[0].x as i32;
     let y0 = triangle2d.vertices[0].y as i32;
@@ -373,20 +403,20 @@ pub fn draw_2dtriangle_to_color_buffer(
     let y2 = triangle2d.vertices[2].y as i32;
 
     // order the vertices by y
-    let (x0,y0,x1,y1,x2,y2) = if y0 < y1 {
+    let (x0, y0, x1, y1, x2, y2) = if y0 < y1 {
         if y1 < y2 {
-            (x0,y0,x1,y1,x2,y2)
+            (x0, y0, x1, y1, x2, y2)
         } else if y0 < y2 {
-            (x0,y0,x2,y2,x1,y1)
+            (x0, y0, x2, y2, x1, y1)
         } else {
-            (x2,y2,x0,y0,x1,y1)
+            (x2, y2, x0, y0, x1, y1)
         }
     } else if y0 < y2 {
-        (x1,y1,x0,y0,x2,y2)
+        (x1, y1, x0, y0, x2, y2)
     } else if y1 < y2 {
-        (x1,y1,x2,y2,x0,y0)
+        (x1, y1, x2, y2, x0, y0)
     } else {
-        (x2,y2,x1,y1,x0,y0)
+        (x2, y2, x1, y1, x0, y0)
     };
 
     // assuming that the longest segment is x0,y0 to x2,y2
@@ -414,9 +444,7 @@ pub fn draw_2dtriangle_to_color_buffer(
                 width,
                 height,
                 &triangle2d.color
-            )
-        ); 
-
+            ));
 }
 
 pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Color {
@@ -431,9 +459,14 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
     let r = (color.r as f32 * intensity) as u8;
     let g = (color.g as f32 * intensity) as u8;
     let b = (color.b as f32 * intensity) as u8;
-    Color{r,g,b,a:color.a}
+    Color {
+        r,
+        g,
+        b,
+        a: color.a,
+    }
 }
-        
+
 // returns the color in u32 format from a texture in &[u8] format
 // using coordinates u and v
 // and texture size width and height
@@ -480,7 +513,13 @@ pub fn calculate_face_color(light_dir: Vec3, normal: Vec3, color: Color) -> Colo
 // and texture size width and height
 
 #[inline]
-fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u32) -> (&u8,&u8,&u8,&u8) {
+fn get_texture_color_rgba(
+    texture: &[u8],
+    u: f32,
+    v: f32,
+    width: u32,
+    height: u32,
+) -> (&u8, &u8, &u8, &u8) {
     let u = (u * width as f32) as u32 % width;
     let v = (v * height as f32) as u32 % height;
     let index = ((v * width + u) * 4) as usize;
@@ -489,7 +528,12 @@ fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u3
     // let g = texture[index + 1];
     // let r = texture[index + 2];
     // let a = texture[index + 3];
-    let [b, g, r, a] = texture.get(index..(index+4)).unwrap_or(&[255_u8, 0_u8, 255_u8, 255_u8]) else {panic!()};
+    let [b, g, r, a] = texture
+        .get(index..(index + 4))
+        .unwrap_or(&[255_u8, 0_u8, 255_u8, 255_u8])
+    else {
+        panic!()
+    };
     // let index = ((v * width + u)) as usize;
     // let texture_u32 = texture.as_slice_of::<u32>().unwrap();
     // assert!(index<texture_u32.len());
@@ -507,8 +551,8 @@ fn get_texture_color_rgba(texture: &[u8], u: f32, v: f32, width: u32, height: u3
 //     let u = (u * width as f32) as u32 % width;
 //     let v = (v * height as f32) as u32 % height;
 //     let index = ((v * width + u) * 4) as usize;
-    
+
 //     let [b,g,r,a] = texture.get_unchecked(index..(index+4)) else { std::hint::unreachable_unchecked() };
-    
+
 //     (*r, *g, *b, *a)
 // }
