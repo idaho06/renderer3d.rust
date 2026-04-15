@@ -1,5 +1,5 @@
 use crate::triangle::Triangle;
-use glam::{Vec2, Vec4};
+use glam::Vec4;
 //use smallvec::SmallVec;
 
 pub enum TriangleClipResult {
@@ -43,34 +43,48 @@ fn clip_triangle_on_plane<F>(triangle: Triangle, signed_distance: F) -> Triangle
 where
     F: Fn(&Vec4) -> f32,
 {
-    let mut inside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
-    let mut outside_points: Vec<(&Vec4, &Vec2)> = Vec::new();
+    let mut inside_indices = [0_usize; 3];
+    let mut outside_indices = [0_usize; 3];
+    let mut inside_count = 0_usize;
+    let mut outside_count = 0_usize;
+    let mut distances = [0.0_f32; 3];
 
     for i in 0..3 {
-        if signed_distance(&triangle.vertices[i]) > 0.0 {
-            inside_points.push((&triangle.vertices[i], &triangle.uvs[i]));
+        let distance = signed_distance(&triangle.vertices[i]);
+        distances[i] = distance;
+
+        if distance > 0.0 {
+            inside_indices[inside_count] = i;
+            inside_count += 1;
         } else {
-            outside_points.push((&triangle.vertices[i], &triangle.uvs[i]));
+            outside_indices[outside_count] = i;
+            outside_count += 1;
         }
     }
 
-    match inside_points.len() {
+    match inside_count {
         0 => TriangleClipResult::NoTriangle,
         1 => {
-            let a = inside_points[0];
-            let b = outside_points[0];
-            let c = outside_points[1];
-            let d_a = signed_distance(a.0);
-            let d_b = signed_distance(b.0);
-            let d_c = signed_distance(c.0);
+            let a_index = inside_indices[0];
+            let b_index = outside_indices[0];
+            let c_index = outside_indices[1];
+            let a = triangle.vertices[a_index];
+            let b = triangle.vertices[b_index];
+            let c = triangle.vertices[c_index];
+            let uv_a = triangle.uvs[a_index];
+            let uv_b = triangle.uvs[b_index];
+            let uv_c = triangle.uvs[c_index];
+            let d_a = distances[a_index];
+            let d_b = distances[b_index];
+            let d_c = distances[c_index];
             let factor_ab = d_a / (d_a - d_b);
             let factor_ac = d_a / (d_a - d_c);
-            let b_prime = (a.0.lerp(*b.0, factor_ab), a.1.lerp(*b.1, factor_ab));
-            let c_prime = (a.0.lerp(*c.0, factor_ac), a.1.lerp(*c.1, factor_ac));
+            let b_prime = (a.lerp(b, factor_ab), uv_a.lerp(uv_b, factor_ab));
+            let c_prime = (a.lerp(c, factor_ac), uv_a.lerp(uv_c, factor_ac));
 
             let new_triangle = Triangle::from_vertices_uvs_normal_color(
-                [*a.0, b_prime.0, c_prime.0],
-                [*a.1, b_prime.1, c_prime.1],
+                [a, b_prime.0, c_prime.0],
+                [uv_a, b_prime.1, c_prime.1],
                 triangle.normal,
                 triangle.color,
             );
@@ -78,27 +92,33 @@ where
             TriangleClipResult::OneTriangle(new_triangle)
         }
         2 => {
-            let a = inside_points[0];
-            let b = inside_points[1];
-            let c = outside_points[0];
-            let d_a = signed_distance(a.0);
-            let d_b = signed_distance(b.0);
-            let d_c = signed_distance(c.0);
+            let a_index = inside_indices[0];
+            let b_index = inside_indices[1];
+            let c_index = outside_indices[0];
+            let a = triangle.vertices[a_index];
+            let b = triangle.vertices[b_index];
+            let c = triangle.vertices[c_index];
+            let uv_a = triangle.uvs[a_index];
+            let uv_b = triangle.uvs[b_index];
+            let uv_c = triangle.uvs[c_index];
+            let d_a = distances[a_index];
+            let d_b = distances[b_index];
+            let d_c = distances[c_index];
             let factor_ac = d_a / (d_a - d_c);
             let factor_bc = d_b / (d_b - d_c);
-            let a_prime = (a.0.lerp(*c.0, factor_ac), a.1.lerp(*c.1, factor_ac));
-            let b_prime = (b.0.lerp(*c.0, factor_bc), b.1.lerp(*c.1, factor_bc));
+            let a_prime = (a.lerp(c, factor_ac), uv_a.lerp(uv_c, factor_ac));
+            let b_prime = (b.lerp(c, factor_bc), uv_b.lerp(uv_c, factor_bc));
 
             let triangle1 = Triangle::from_vertices_uvs_normal_color(
-                [*a.0, *b.0, a_prime.0],
-                [*a.1, *b.1, a_prime.1],
+                [a, b, a_prime.0],
+                [uv_a, uv_b, a_prime.1],
                 triangle.normal,
                 triangle.color,
             );
 
             let triangle2 = Triangle::from_vertices_uvs_normal_color(
-                [a_prime.0, *b.0, b_prime.0],
-                [a_prime.1, *b.1, b_prime.1],
+                [a_prime.0, b, b_prime.0],
+                [a_prime.1, uv_b, b_prime.1],
                 triangle.normal,
                 triangle.color,
             );
@@ -106,7 +126,7 @@ where
             TriangleClipResult::TwoTriangles(triangle1, triangle2)
         }
         3 => TriangleClipResult::OneTriangle(triangle),
-        _ => panic!("inside_points.len() is not 0, 1, 2, or 3"),
+        _ => panic!("inside_count is not 0, 1, 2, or 3"),
     }
 }
 
@@ -278,6 +298,44 @@ mod tests {
                 for v in &t1.vertices {
                     assert!(v.w > 0.0, "Clipped vertex W must be positive, got {}", v.w);
                 }
+            }
+            _ => panic!("Expected TwoTriangles"),
+        }
+    }
+
+    #[test]
+    fn test_x_clip_preserves_vertex_order_and_uvs() {
+        let tri = make_triangle(
+            [
+                Vec4::new(-2.0, 0.0, 0.0, 1.0),
+                Vec4::new(0.5, 0.0, 0.0, 1.0),
+                Vec4::new(0.0, 1.0, 0.0, 1.0),
+            ],
+            [
+                Vec2::new(0.0, 0.0),
+                Vec2::new(1.0, 0.0),
+                Vec2::new(0.5, 1.0),
+            ],
+        );
+
+        match clip_triangle_x_axis(tri) {
+            TriangleClipResult::TwoTriangles(t1, t2) => {
+                assert_eq!(t1.vertices[0], Vec4::new(0.5, 0.0, 0.0, 1.0));
+                assert_eq!(t1.vertices[1], Vec4::new(0.0, 1.0, 0.0, 1.0));
+                assert_eq!(t1.uvs[0], Vec2::new(1.0, 0.0));
+                assert_eq!(t1.uvs[1], Vec2::new(0.5, 1.0));
+
+                let first_intersection = t1.vertices[2];
+                let second_intersection = t2.vertices[2];
+                assert!((first_intersection.x + first_intersection.w).abs() < 1e-5);
+                assert!((second_intersection.x + second_intersection.w).abs() < 1e-5);
+
+                let first_uv = t1.uvs[2];
+                let second_uv = t2.uvs[2];
+                assert!((first_uv.x - 0.4).abs() < 1e-5);
+                assert!((first_uv.y - 0.0).abs() < 1e-5);
+                assert!((second_uv.x - 0.25).abs() < 1e-5);
+                assert!((second_uv.y - 0.5).abs() < 1e-5);
             }
             _ => panic!("Expected TwoTriangles"),
         }
