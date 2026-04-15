@@ -80,7 +80,7 @@ impl Display {
             .into_canvas()
             .accelerated()
             //.software()
-            .present_vsync()
+            //.present_vsync()
             //.target_texture()
             .build()
             .map_err(|e| e.to_string())

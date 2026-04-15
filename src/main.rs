@@ -44,5 +44,9 @@ fn main() -> Result<(), String> {
         }
     }
 
+    println!("Total frames: {}", frame);
+    println!("Average FPS: {}", frame as f32 / (display.get_frame_time() as f32 / 1000.0));
+    println!("Total time: {} seconds", display.get_frame_time() as f32 / 1000.0);
+
     Ok(())
 }
