@@ -1,3 +1,14 @@
+//! SDL2 window, canvas, and streaming texture management.
+//!
+//! [`Display`] owns the SDL2 context and a map of named streaming buffers.
+//! Each buffer is a CPU-side ARGB8888 `Box<[u8]>` that scenes write into; `Display` uploads
+//! them to the canvas as SDL2 streaming textures on each call to
+//! [`Display::color_buffer_to_canvas`].
+//!
+//! [`DisplayConfig`] lets callers opt into vsync without constructing a display first.
+//!
+//! See book chapter: _Display and SDL2 setup_ (TODO: link when mdBook is set up).
+
 use crate::userinput::UserInput;
 use byte_slice_cast::AsMutSliceOf;
 use rustc_hash::FxHashMap;
@@ -20,6 +31,10 @@ struct StreamingBuffer {
     texture: Texture,
 }
 
+/// SDL2 window + canvas + named streaming buffers.
+///
+/// Scenes never call SDL2 directly; they write into a named color buffer and call
+/// [`Display::color_buffer_to_canvas`] to blit it.
 pub struct Display {
     sdl_context: Sdl,
     canvas: Canvas<Window>,
@@ -35,14 +50,17 @@ impl Default for Display {
     }
 }
 
+/// Configuration passed to [`Display::with_config`] before the SDL2 window is created.
 #[derive(Default)]
 pub struct DisplayConfig {
+    /// Enable vsync on the SDL2 canvas presenter.
     pub vsync: bool,
 }
 
 #[allow(clippy::missing_panics_doc)]
 impl Display {
     #[must_use]
+    /// Creates a display with default config (vsync off).
     pub fn new() -> Self {
         Self::with_config(DisplayConfig::default())
     }
@@ -51,6 +69,7 @@ impl Display {
     /// Panics if SDL2 initialization fails.
     #[must_use]
     #[allow(clippy::needless_pass_by_value, clippy::cast_sign_loss, clippy::missing_panics_doc)]
+    /// Creates a display with the given config, querying the current desktop resolution.
     pub fn with_config(config: DisplayConfig) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
@@ -62,6 +81,10 @@ impl Display {
             refresh_rate: 0,
             driverdata: std::ptr::null_mut::<std::ffi::c_void>(),
         };
+        // SAFETY: `SDL_GetCurrentDisplayMode` writes into `dm` which we own on the stack.
+        // Display index 0 is always valid when SDL2 video is initialised.
+        // `&raw mut dm` produces a raw pointer without creating an intermediate reference,
+        // satisfying SDL2's `*mut SDL_DisplayMode` parameter.
         unsafe {
             sdl2::sys::SDL_GetCurrentDisplayMode(0_i32, &raw mut dm);
         }
@@ -109,32 +132,39 @@ impl Display {
         }
     }
 
+    /// Fills the canvas with black.
     pub fn cls(&mut self) {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
     }
+    /// Presents the canvas to the screen (flips the back buffer).
     pub fn present_canvas(&mut self) {
         self.canvas.present();
     }
     #[must_use]
+    /// Returns the SDL2 event pump. Call once per frame to drain the event queue.
     pub fn get_event_pump(&self) -> EventPump {
         self.sdl_context.event_pump().unwrap()
     }
 
     #[must_use]
+    /// Returns the number of milliseconds since SDL2 was initialized (monotonic clock).
     pub fn get_frame_time(&self) -> u32 {
         self.sdl_context.timer().unwrap().ticks()
     }
 
     #[must_use]
+    /// Returns the window width in pixels (current desktop resolution).
     pub fn get_width(&self) -> u32 {
         self.w_width
     }
     #[must_use]
+    /// Returns the window height in pixels.
     pub fn get_height(&self) -> u32 {
         self.w_height
     }
 
+    /// Allocates a new named ARGB8888 streaming buffer and its backing SDL2 texture.
     pub fn add_streaming_buffer(&mut self, name: &str, width: u32, height: u32) {
         let mut texture = self
             .canvas
@@ -151,6 +181,7 @@ impl Display {
         );
     }
 
+    /// Fills the named buffer's CPU-side color buffer with `color` (ARGB8888).
     pub fn clear_streaming_buffer(&mut self, name: &str, color: Color) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let a = color.a;
@@ -166,6 +197,7 @@ impl Display {
         }
     }
 
+    /// Uploads the named buffer's internal color buffer to its SDL2 texture and blits to canvas.
     pub fn streaming_buffer_to_canvas(&mut self, name: &str) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let width = streaming_buffer.texture.query().width;
@@ -181,6 +213,10 @@ impl Display {
         }
     }
 
+    /// Uploads an externally-owned ARGB8888 `color_buffer` to the named SDL2 texture and blits.
+    ///
+    /// The scene writes into its own `Framebuffer::color_buffer`; this method is the handoff
+    /// from CPU memory to the SDL2 canvas.
     pub fn color_buffer_to_canvas(&mut self, name: &str, color_buffer: &[u8]) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let width = streaming_buffer.texture.query().width;
@@ -201,6 +237,9 @@ impl Display {
         clippy::cast_possible_truncation,
         clippy::many_single_char_names
     )]
+    /// Writes a batch of pixels into the named streaming buffer.
+    ///
+    /// Out-of-bounds pixels are silently skipped.
     pub fn put_pixel_queue(&mut self, name: &str, pixel_queue: &[Pixel]) {
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let width = streaming_buffer.texture.query().width;
@@ -231,6 +270,7 @@ impl Display {
         self.get_width() as f32 / self.get_height() as f32
     }
 
+    /// Toggles SDL2 relative mouse mode (captured vs. free cursor).
     pub fn switch_relative_mouse_mode(&mut self) {
         self.user_input.mouse.is_relative = !self.user_input.mouse.is_relative;
         self.sdl_context
@@ -238,6 +278,7 @@ impl Display {
             .set_relative_mouse_mode(self.user_input.mouse.is_relative);
     }
 
+    /// Drains the SDL2 event queue and updates [`Display::user_input`] for this frame.
     pub fn update_user_input(&mut self) {
         let mut event_pump = self.get_event_pump();
         self.user_input.reset();

@@ -1,3 +1,10 @@
+//! 2D drawing helpers: pixel writes, line rasterization, and flat-shaded triangle fill.
+//!
+//! These operate on a raw `&mut [u8]` color buffer (ARGB8888, same layout as [`crate::framebuffer::Framebuffer`]).
+//! They are used for wireframe and debug rendering; the 3D textured path lives in [`crate::render::rasterizer`].
+//!
+//! See book chapter: _2D rendering primitives_ (TODO: link when mdBook is set up).
+
 use byte_slice_cast::AsMutSliceOf;
 use glam::Vec2;
 use sdl2::pixels::Color;
@@ -12,6 +19,10 @@ use super::interpolate::map_interpolate_int;
     clippy::needless_for_each,
     clippy::missing_panics_doc
 )]
+/// Draws an anti-aliased–free line between `point1` and `point2` into the color buffer.
+///
+/// Uses Bresenham-style integer interpolation; clips to buffer bounds.
+/// `color_buffer` must be ARGB8888, length `width * height * 4` bytes.
 pub fn draw_2dline_to_color_buffer(
     point1: &Vec2,
     point2: &Vec2,
@@ -47,6 +58,9 @@ pub fn draw_2dline_to_color_buffer(
     clippy::cast_possible_wrap,
     clippy::cast_sign_loss
 )]
+/// Writes a single ARGB8888 `color` at screen coordinate `(x, y)`.
+///
+/// Out-of-bounds coordinates are silently ignored.
 pub fn put_pixel_to_color_buffer(
     x: i32,
     y: i32,
@@ -69,6 +83,10 @@ pub fn put_pixel_to_color_buffer(
     clippy::similar_names,
     clippy::needless_for_each
 )]
+/// Fills a flat-shaded 2D triangle using scanline rasterization.
+///
+/// Vertices are reordered by Y before rasterization. Color is taken from
+/// `triangle2d.color`. Clips to buffer bounds.
 pub fn draw_2dtriangle_to_color_buffer(
     triangle2d: &Triangle,
     color_buffer: &mut [u8],

@@ -1,3 +1,10 @@
+//! Texture sampling with power-of-2 dimension requirement.
+//!
+//! The single public function [`get_texture_color_argb_pow2_unchecked`] is the hot-path
+//! texture lookup called once per visible pixel in the rasterizer.
+//!
+//! See book chapter: _Texture sampling iterations_ (TODO: link when mdBook is set up).
+
 /// Texture lookup with power-of-2 dimensions.
 ///
 /// Uses bitwise AND instead of modulo for UV wrapping — requires that both
@@ -21,6 +28,9 @@ pub fn get_texture_color_argb_pow2_unchecked(
     let v = ((v * height as f32) as u32) & (height - 1);
     let index = ((v * width + u) * 4) as usize;
 
+    // SAFETY: `index` is derived from `u` and `v` masked by `(width-1)` and `(height-1)`.
+    // Because `width` and `height` are powers of two (asserted above), the bitwise AND
+    // guarantees `u < width` and `v < height`, so `index + 3 < texture.len()`.
     unsafe {
         [
             *texture.get_unchecked(index + 3),

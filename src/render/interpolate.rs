@@ -1,3 +1,11 @@
+//! Scanline interpolation helpers for the rasterizer.
+//!
+//! Two variants are provided:
+//! - [`map_interpolate_float_vec4_iter`] — allocation-free iterator used in the hot path.
+//! - [`map_interpolate_int`] — `Vec`-returning integer version used for 2D line drawing.
+//!
+//! See book chapter: _Interpolation iterations_ (TODO: link when mdBook is set up).
+
 use glam::Vec4;
 
 /// Linear interpolation iterator for scanline rasterization.

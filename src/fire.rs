@@ -1,3 +1,11 @@
+//! Doom-style 2D fire effect scene.
+//!
+//! Maintains a 320×90 palette-index buffer (`fire_buffer`) that propagates "heat" upward
+//! each frame with random decay.  The indices are mapped through a 37-entry RGB palette
+//! to ARGB8888 pixels and uploaded to the `"fire"` streaming buffer on each render call.
+//!
+//! See book chapter: _Fire effect_ (TODO: link when mdBook is set up).
+
 use byte_slice_cast::AsMutSliceOf;
 use sdl2::pixels::Color;
 
@@ -7,6 +15,7 @@ use crate::{
 };
 
 #[allow(clippy::struct_field_names)]
+/// The 2D fire effect scene.
 pub struct Fire {
     width: u32,
     height: u32,
@@ -17,6 +26,7 @@ pub struct Fire {
 }
 
 impl Fire {
+    /// Creates the fire scene, allocates buffers, and registers the `"fire"` streaming buffer.
     pub fn new(display: &mut Display) -> Self {
         let width = 320_u32;
         let height = 90_u32;

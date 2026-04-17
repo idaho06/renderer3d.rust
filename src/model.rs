@@ -1,22 +1,49 @@
+//! 3D model geometry and texture data.
+//!
+//! [`Model`] owns the vertex buffer, UV buffer, face list, and (optionally) a packed texture.
+//! Two constructors are provided: [`Model::builtin_cube`] for the procedural test model and
+//! [`Model::from_obj_and_png`] for loading assets from disk.
+//!
+//! ## Why the BGRA → ARGB swap at load time?
+//!
+//! The `image` crate delivers PNG pixels in RGBA byte order.  The rasterizer reads the texture
+//! as a `u32` in big-endian byte order, expecting **ARGB** (`[a, r, g, b]`).  Swapping once at
+//! load time (RGBA → BGRA so that big-endian interpretation gives ARGB) means **zero extra work
+//! in the hot path** — each pixel lookup just reads four bytes, with no per-pixel reordering.
+//!
+//! See book chapter: _Model loading_ (TODO: link when mdBook is set up).
+
 use crate::triangle::Face;
 use glam::{Vec2, Vec3};
 use sdl2::pixels::Color;
 
+/// Holds all geometry and texture data for a single 3D object.
 pub struct Model {
+    /// Vertex positions in model space.
     pub vertices: Vec<Vec3>,
+    /// UV texture coordinates (one per UV index, not per vertex).
     pub uvs: Vec<Vec2>,
+    /// Surface normals (one per normal index, not per vertex).
     pub normals: Vec<Vec3>,
+    /// Triangulated face list referencing `vertices`, `uvs`, and `normals` by index.
     pub faces: Vec<Face>,
+    /// Optional packed texture in BGRA byte order (interpreted as ARGB big-endian).
     pub texture: Option<Box<[u8]>>,
+    /// Texture width in pixels. Must be a power of two for the rasterizer's fast lookup.
     pub texture_width: u32,
+    /// Texture height in pixels. Must be a power of two for the rasterizer's fast lookup.
     pub texture_height: u32,
+    /// World-space translation applied each frame.
     pub position: Vec3,
+    /// Per-axis Euler rotation (radians) applied each frame.
     pub rotation: Vec3,
+    /// Per-axis scale factor applied each frame.
     pub scale: Vec3,
 }
 
 impl Model {
     #[must_use]
+    /// Creates an empty model with no geometry or texture.
     pub fn new() -> Self {
         Self {
             vertices: Vec::new(),
@@ -33,6 +60,10 @@ impl Model {
     }
 
     #[must_use]
+    /// Loads a model from an OBJ file and its companion PNG texture.
+    ///
+    /// Quad faces are triangulated automatically. The texture is swapped from RGBA to BGRA
+    /// so that the rasterizer can interpret it as ARGB8888 with a simple big-endian read.
     pub fn from_obj_and_png(obj_file: &str, image_file: &str) -> Self {
         let mut model = Self::new();
         model.load_from_files(obj_file, image_file);
@@ -41,6 +72,9 @@ impl Model {
 
     #[must_use]
     #[allow(clippy::items_after_statements, clippy::cast_possible_truncation)]
+    /// Returns a hard-coded unit cube with a procedural 8×8 checkerboard texture.
+    ///
+    /// Useful for testing the pipeline without loading files from disk.
     pub fn builtin_cube() -> Self {
         let vertices = vec![
             Vec3::new(-1.0, -1.0, -1.0), // 0
@@ -197,7 +231,10 @@ impl Model {
         let (width, height) = image.dimensions();
         let raw = image.into_raw();
         let mut texture = raw.into_boxed_slice();
-        // swap RGBA → BGRA so it ends up as ARGB when the rasterizer interprets it big-endian
+        // Why RGBA → BGRA? The `image` crate gives us RGBA bytes. The rasterizer reads 4 bytes
+        // as a big-endian u32 and expects ARGB: bytes [a, r, g, b]. Reordering to BGRA here means
+        // that big-endian layout becomes ARGB, so the hot path does a plain 4-byte read with no
+        // per-pixel branch or swap.
         for i in 0..texture.len() / 4 {
             let r = texture[i * 4];
             let g = texture[i * 4 + 1];

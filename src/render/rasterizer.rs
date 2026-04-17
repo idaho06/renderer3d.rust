@@ -1,3 +1,18 @@
+//! Scanline rasterizer — the innermost hot path of the graphics pipeline.
+//!
+//! [`draw_3dtriangle_to_color_buffer`] rasterizes a single clipped, projected triangle
+//! with perspective-correct UV interpolation, z-buffering, and integer color multiplication.
+//!
+//! ## Key design decisions
+//!
+//! - **`1/w` z-buffer**: reciprocal W interpolates linearly in screen space; higher = closer.
+//! - **`(a * b) >> 8` color multiply**: integer multiply + shift is multiple cycles faster
+//!   than float multiply/divide and visually equivalent for 8-bit channel modulation.
+//! - **`unsafe` accesses**: bounds are proven before entering the pixel loop; the `unsafe`
+//!   blocks call `get_unchecked` / `to_int_unchecked` to avoid redundant bounds checks.
+//!
+//! See book chapter: _Pipeline Stage 8 — Rasterize_ (TODO: link when mdBook is set up).
+
 use byte_slice_cast::AsMutSliceOf;
 use glam::{Vec3, Vec4};
 
@@ -7,14 +22,26 @@ use super::texture::get_texture_color_argb_pow2_unchecked;
 
 #[inline]
 #[allow(clippy::cast_lossless, clippy::cast_possible_truncation)]
+/// Multiplies two 8-bit color channel values as if they were in `[0, 1]`.
+///
+/// `(a as u16 * b as u16) >> 8` — integer multiply + right shift is multiple cycles faster
+/// than float division by 255 and visually equivalent for 8-bit channel modulation.
 fn mul_u8(a: u8, b: u8) -> u8 {
     ((u16::from(a) * u16::from(b)) >> 8) as u8
 }
 
 /// Scanline rasterizer with perspective-correct UV interpolation and z-buffering.
 ///
-/// The z-buffer stores reciprocal W (`1/w`); higher values are closer to the camera.
-/// Pixel format: ARGB8888 stored as `u32::from_be_bytes([a, r, g, b])`.
+/// ## Z-buffer: why `1/w`
+///
+/// The z-buffer stores reciprocal W (`1/w`) rather than depth directly.
+/// `1/w` interpolates **linearly in screen space** (whereas depth `z/w` does not),
+/// which means we compute one reciprocal per vertex and interpolate cheaply across the
+/// scanline. Higher values of `1/w` mean closer to the camera, so the test is `>`.
+///
+/// ## Pixel format
+///
+/// ARGB8888 stored as `u32::from_be_bytes([a, r, g, b])`.
 #[allow(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
@@ -155,6 +182,10 @@ pub fn draw_3dtriangle_to_color_buffer(
         let start_x: i32;
         let end_x: i32;
         let y: i32;
+        // SAFETY: `clamped_start_x` and `clamped_end_x` are both clamped to `[0, max_x]`
+        // (i.e. `[0.0, cb_width - 1.0]`) by the `.max(0.0)` / `.min(max_x)` calls above.
+        // `scanline_y` passed the `< cb_height_f32` guard, so it is in `[0, cb_height - 1)`.
+        // All three values are therefore exact non-negative integers fitting in `i32`.
         unsafe {
             start_x = clamped_start_x.to_int_unchecked();
             end_x = clamped_end_x.to_int_unchecked();
@@ -167,9 +198,13 @@ pub fn draw_3dtriangle_to_color_buffer(
             let reciprocal_w = span_values.x;
             let z_index = row_base + x as usize;
 
+            // SAFETY: `z_index = y * cb_width + x`. `y` is in `[0, cb_height)` and
+            // `x` is in `[start_x, end_x]` ⊆ `[0, cb_width - 1]`, so
+            // `z_index < cb_width * cb_height == z_buffer.len()`.
             let z_buffer_w = unsafe { *z_buffer.get_unchecked(z_index) };
 
             if reciprocal_w > z_buffer_w {
+                // SAFETY: same index bounds as the read above.
                 unsafe {
                     *z_buffer.get_unchecked_mut(z_index) = reciprocal_w;
                 }
@@ -189,6 +224,7 @@ pub fn draw_3dtriangle_to_color_buffer(
                     mul_u8(texture_color[2], triangle_color_array_u8[2]),
                     mul_u8(texture_color[3], triangle_color_array_u8[3]),
                 ]);
+                // SAFETY: `z_index < color_buffer_u32.len()` (same bounds as z_buffer).
                 unsafe {
                     *color_buffer_u32.get_unchecked_mut(z_index) = color;
                 }

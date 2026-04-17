@@ -1,3 +1,12 @@
+//! Top-level 3D scene: owns the model, camera, and framebuffer; drives the pipeline.
+//!
+//! [`Mesh`] implements [`crate::scene::Scene`].  Its `update()` call runs all eight
+//! pipeline stages in order each frame.
+//!
+//! The pipeline stages are private methods — see the source for inline documentation.
+//!
+//! See book chapter: _The 3D pipeline overview_ (TODO: link when mdBook is set up).
+
 use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 
 use crate::{
@@ -26,11 +35,15 @@ static CLIP_PLANES: [fn(Triangle) -> TriangleClipResult; 7] = [
 
 const CLIP_BUFFER_CAPACITY: usize = 128;
 
+/// Selects which 3D model the scene will display.
 pub enum ModelSource {
+    /// Use the procedural built-in unit cube (no files needed).
     BuiltinCube,
+    /// Load geometry and texture from OBJ + PNG files on disk.
     Obj { obj_path: String, png_path: String },
 }
 
+/// The main 3D scene: model + camera + framebuffer + per-frame pipeline scratch buffers.
 pub struct Mesh {
     model: Model,
     camera: Camera,
@@ -45,6 +58,8 @@ pub struct Mesh {
 }
 
 impl Mesh {
+    /// Creates a new scene, allocates the framebuffer, and registers the streaming buffer
+    /// with the display.
     pub fn new(display: &mut Display, source: ModelSource) -> Self {
         let model = match source {
             ModelSource::BuiltinCube => Model::builtin_cube(),
@@ -134,6 +149,9 @@ impl Mesh {
         for tri in &self.transformed_triangles {
             let v = tri.vertices.map(|v| {
                 let mut p = proj_matrix * v;
+                // Why flip Y? Screen-space Y increases downward, but NDC Y increases upward.
+                // Negating Y here converts from NDC convention to screen convention before
+                // the perspective divide and screen-space mapping that follow.
                 p.y *= -1.0;
                 p
             });

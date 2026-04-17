@@ -1,3 +1,11 @@
+//! Entry point for the `renderer3d` binary.
+//!
+//! Parses CLI flags via [`render3d::cli::CliArgs`], opens the SDL2 window, and runs the
+//! frame loop until the frame limit is reached or the user closes the window.
+//! At exit, prints total frames, average FPS, and total elapsed time.
+//!
+//! Run `renderer3d --help` for available options.
+
 use clap::Parser;
 use render3d::{
     cli::CliArgs,

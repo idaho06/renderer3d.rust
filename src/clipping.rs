@@ -1,9 +1,25 @@
+//! Homogeneous-space frustum clipping (Sutherland–Hodgman algorithm).
+//!
+//! ## Why clip in homogeneous space (before the perspective divide)?
+//!
+//! Clipping *after* the perspective divide (`x/w`, `y/w`, `z/w`) breaks when any
+//! vertex has `w ≤ 0` (i.e. it is behind the camera): the divide produces garbage
+//! coordinates and linear interpolation along the edge is incorrect.  By clipping
+//! while W is still intact we avoid the divide-by-zero and get correct linear
+//! interpolation of all attributes (position, UV, W) at plane boundaries.
+//!
+//! See book chapter: _Pipeline Stage 6 — Clip_ (TODO: link when mdBook is set up).
+
 use crate::triangle::Triangle;
 use glam::Vec4;
 
+/// Result of clipping a single triangle against one frustum plane.
 pub enum TriangleClipResult {
+    /// Triangle is entirely inside — returned unchanged.
     OneTriangle(Triangle),
+    /// Triangle straddles the plane and was split into two.
     TwoTriangles(Triangle, Triangle),
+    /// Triangle is entirely outside — discard it.
     NoTriangle,
 }
 
@@ -11,36 +27,43 @@ pub enum TriangleClipResult {
 // Inside when d(v) > 0. Intersection factor: t = d_a / (d_a - d_b).
 
 #[must_use]
+/// Clips against the near-W plane (`w > 0.001`), rejecting vertices behind the camera.
 pub fn clip_triangle_w_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - 0.001)
 }
 
 #[must_use]
+/// Clips against the left frustum plane (`x ≥ −w`).
 pub fn clip_triangle_x_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.x + v.w)
 }
 
 #[must_use]
+/// Clips against the bottom frustum plane (`y ≥ −w`).
 pub fn clip_triangle_y_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.y + v.w)
 }
 
 #[must_use]
+/// Clips against the near-Z plane (`z ≥ 0`).
 pub fn clip_triangle_z_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.z)
 }
 
 #[must_use]
+/// Clips against the right frustum plane (`x ≤ w`).
 pub fn clip_triangle_nx_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.x)
 }
 
 #[must_use]
+/// Clips against the top frustum plane (`y ≤ w`).
 pub fn clip_triangle_ny_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.y)
 }
 
 #[must_use]
+/// Clips against the far-Z plane (`z ≤ w`).
 pub fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.z)
 }

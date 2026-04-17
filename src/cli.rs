@@ -1,5 +1,12 @@
+//! Command-line argument parsing using [`clap`].
+//!
+//! Run `renderer3d --help` to see all flags.
+//!
+//! See book chapter: _Running the renderer_ (TODO: link when mdBook is set up).
+
 use clap::Parser;
 
+/// Command-line arguments for the renderer.
 #[derive(Parser, Debug)]
 #[command(name = "renderer3d", about = "CPU software rasterizer")]
 pub struct CliArgs {
@@ -22,6 +29,8 @@ pub struct CliArgs {
 
 impl CliArgs {
     #[must_use]
+    /// Returns `None` if `--unlimited` was passed, otherwise `Some(N)` where N is either
+    /// the explicit `--frames` value or the default 1500 frames (60 fps × 25 s).
     pub fn max_frames(&self) -> Option<u32> {
         if self.unlimited {
             None

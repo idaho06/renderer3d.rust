@@ -1,45 +1,70 @@
-// This module defines two structs:
-// 1. face - a struct that containst the indices to the vertices and uvs and the normal of triangle from a mesh
-// 2. triangle - an array of 3 Vec4 for the vertices, an array of 3 Vec2 for the uvs, a Vec4 for the normal, and a Vec4 for the color
+//! Triangle and face primitives used throughout the pipeline.
+//!
+//! - [`Face`] — index record pointing into a [`crate::model::Model`]'s vertex/UV/normal arrays.
+//! - [`Triangle`] — fully expanded triangle (3 × `Vec4` vertices, 3 × `Vec2` UVs, normal, color).
+//! - [`TriangleScreenPixel`] — one interpolated scanline endpoint carrying perspective-correct data.
 
 use glam::{Vec2, Vec3, Vec4};
 use sdl2::pixels::Color;
 
+/// Index record for one face of a [`crate::model::Model`].
+///
+/// All fields are indices into the model's corresponding arrays.
 pub struct Face {
+    /// Indices into `Model::vertices`.
     pub vertices: [usize; 3],
+    /// Indices into `Model::uvs`.
     pub uvs: [usize; 3],
+    /// Indices into `Model::normals`.
     pub normals: [usize; 3],
+    /// Pre-computed face normal (model space).
     pub normal: Vec3,
+    /// Base face color before lighting (multiplied by diffuse intensity in the pipeline).
     pub color: Color,
 }
 
 #[derive(Debug, PartialEq)]
+/// A fully expanded, self-contained triangle ready for clipping and rasterization.
 pub struct Triangle {
+    /// Three clip-space or screen-space vertices (homogeneous coordinates).
     pub vertices: [Vec4; 3],
+    /// Centroid used for back-face culling.
     pub center: Vec4,
+    /// UV texture coordinates at each vertex.
     pub uvs: [Vec2; 3],
+    /// Surface normal in view space.
     pub normal: Vec3,
+    /// Lit face color (ARGB, baked during `transform_to_camera_space`).
     pub color: Color,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
+/// One interpolated endpoint on a triangle scanline edge.
+///
+/// Carries perspective-correct data for the per-pixel rasterization inner loop.
 pub struct TriangleScreenPixel {
+    /// Screen-space X coordinate.
     pub x: f32,
+    /// Screen-space Y coordinate.
     pub y: f32,
+    /// `1/w` — used for z-buffering and perspective correction.
     pub reciprocal_w: f32,
+    /// `u/w` — perspective-divided U coordinate.
     pub u_divided_w: f32,
+    /// `v/w` — perspective-divided V coordinate.
     pub v_divided_w: f32,
 }
 impl TriangleScreenPixel {
     #[must_use]
+    /// Returns a zeroed `TriangleScreenPixel` (same as `Default::default()`).
     pub fn new() -> Self {
         Self::default()
     }
 }
 
 impl Triangle {
-    // triangle constructor with only three Vec4 vertices and uvs. No normal calculated
     #[must_use]
+    /// Creates a triangle from vertices and UVs, with no normal and white color.
     pub fn from_vertices_uv(vertices: [Vec4; 3], uvs: [Vec2; 3]) -> Self {
         let normal = Vec3::ZERO;
         let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
@@ -51,8 +76,8 @@ impl Triangle {
             color: Color::WHITE,
         }
     }
-    // triangle constructor with three Vec4 vertices, three Vec2 uvs, Vec3 normal, and Color color
     #[must_use]
+    /// Creates a triangle from vertices, UVs, a surface normal, and a lit color.
     pub fn from_vertices_uvs_normal_color(
         vertices: [Vec4; 3],
         uvs: [Vec2; 3],
@@ -68,8 +93,8 @@ impl Triangle {
             color,
         }
     }
-    // triangle constructor "new". No parameters. Returns a triangle with all zeros
     #[must_use]
+    /// Creates a degenerate all-zero triangle with white color.
     pub fn new() -> Self {
         Self {
             vertices: [Vec4::ZERO; 3],
