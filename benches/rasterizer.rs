@@ -117,16 +117,52 @@ mod bench_archive {
 
     // --- Color multiply ---
 
-    /// V1: Vec4 float multiply.
+    /// V1: full round-trip via Vec4 float multiply.
+    ///
+    /// Converts two ARGB `[u8; 4]` arrays to `Vec4` in `[0, 1]`, multiplies
+    /// element-wise, converts back to `u8` with `to_int_unchecked`, and packs
+    /// the result into a big-endian `u32`.  This matches the original hot-path
+    /// code before commit `29108d1`.
     #[inline]
-    pub fn color_multiply_v1_float(texture: Vec4, face: Vec4) -> Vec4 {
-        texture * face
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    pub fn color_multiply_v1_float(texture: [u8; 4], face: [u8; 4]) -> u32 {
+        let t = Vec4::new(
+            texture[0] as f32 / 255.0,
+            texture[1] as f32 / 255.0,
+            texture[2] as f32 / 255.0,
+            texture[3] as f32 / 255.0,
+        );
+        let f = Vec4::new(
+            face[0] as f32 / 255.0,
+            face[1] as f32 / 255.0,
+            face[2] as f32 / 255.0,
+            face[3] as f32 / 255.0,
+        );
+        let r = t * f * 255.0;
+        // SAFETY: r components are in [0, 255] — product of two [0,1] floats × 255.
+        unsafe {
+            u32::from_be_bytes([
+                r.x.to_int_unchecked(),
+                r.y.to_int_unchecked(),
+                r.z.to_int_unchecked(),
+                r.w.to_int_unchecked(),
+            ])
+        }
     }
 
-    /// V2: integer multiply + right shift. Final version.
+    /// V2: full round-trip via integer multiply + right shift. Final version.
+    ///
+    /// Takes two ARGB `[u8; 4]` arrays, applies `(a as u16 * b as u16) >> 8`
+    /// per channel, and packs the result into a big-endian `u32`.  This is the
+    /// hot-path kernel introduced in commit `29108d1`.
     #[inline]
-    pub fn color_multiply_v2_int_shift(a: u8, b: u8) -> u8 {
-        ((a as u16 * b as u16) >> 8) as u8
+    pub fn color_multiply_v2_int_shift(texture: [u8; 4], face: [u8; 4]) -> u32 {
+        u32::from_be_bytes([
+            ((u16::from(texture[0]) * u16::from(face[0])) >> 8) as u8,
+            ((u16::from(texture[1]) * u16::from(face[1])) >> 8) as u8,
+            ((u16::from(texture[2]) * u16::from(face[2])) >> 8) as u8,
+            ((u16::from(texture[3]) * u16::from(face[3])) >> 8) as u8,
+        ])
     }
 
     // --- Buffer clear ---
@@ -214,37 +250,40 @@ fn bench_interpolation(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark: color multiply (per-channel, called 4× per pixel)
+// Benchmark: color multiply (full round-trip: [u8;4] + [u8;4] → u32)
 // ---------------------------------------------------------------------------
 fn bench_color_multiply(c: &mut Criterion) {
     let mut group = c.benchmark_group("color_multiply");
 
-    // Simulate multiplying a full scanline of pixels (1280 pixels × 4 channels).
+    // Simulate 1280 texture pixels (one scanline) each multiplied by a constant face color.
     const PIXELS: usize = 1280;
-    let tex: Vec<u8> = (0..PIXELS * 4).map(|i| (i % 256) as u8).collect();
-    let face: Vec<u8> = vec![200u8; PIXELS * 4];
-    let tex_vec4: Vec<Vec4> = (0..PIXELS)
-        .map(|i| Vec4::new(tex[i * 4] as f32, tex[i * 4 + 1] as f32, tex[i * 4 + 2] as f32, tex[i * 4 + 3] as f32))
+    let tex_colors: Vec<[u8; 4]> = (0..PIXELS)
+        .map(|i| [(i % 256) as u8, ((i + 1) % 256) as u8, ((i + 2) % 256) as u8, 255])
         .collect();
-    let face_vec4: Vec<Vec4> = (0..PIXELS)
-        .map(|_| Vec4::new(200.0 / 255.0, 200.0 / 255.0, 200.0 / 255.0, 255.0 / 255.0))
-        .collect();
+    let face_color: [u8; 4] = [255, 200, 200, 200]; // constant lit face color
 
-    group.bench_function("v1_float_vec4", |b| {
+    group.bench_function("v1_float_full_roundtrip", |b| {
         b.iter(|| {
-            tex_vec4
+            tex_colors
                 .iter()
-                .zip(face_vec4.iter())
-                .map(|(&t, &f)| bench_archive::color_multiply_v1_float(black_box(t), black_box(f)))
-                .fold(Vec4::ZERO, |acc, x| acc + x)
+                .fold(0u32, |acc, &t| {
+                    acc.wrapping_add(bench_archive::color_multiply_v1_float(
+                        black_box(t),
+                        black_box(face_color),
+                    ))
+                })
         })
     });
-    group.bench_function("v2_int_shift", |b| {
+    group.bench_function("v2_int_shift_full_roundtrip", |b| {
         b.iter(|| {
-            tex.iter()
-                .zip(face.iter())
-                .map(|(&t, &f)| bench_archive::color_multiply_v2_int_shift(black_box(t), black_box(f)))
-                .fold(0u32, |acc, x| acc + x as u32)
+            tex_colors
+                .iter()
+                .fold(0u32, |acc, &t| {
+                    acc.wrapping_add(bench_archive::color_multiply_v2_int_shift(
+                        black_box(t),
+                        black_box(face_color),
+                    ))
+                })
         })
     });
     group.finish();
