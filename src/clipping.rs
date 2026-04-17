@@ -1,6 +1,5 @@
 use crate::triangle::Triangle;
 use glam::Vec4;
-//use smallvec::SmallVec;
 
 pub enum TriangleClipResult {
     OneTriangle(Triangle),
@@ -11,34 +10,42 @@ pub enum TriangleClipResult {
 // Clip-space frustum planes using signed-distance functions.
 // Inside when d(v) > 0. Intersection factor: t = d_a / (d_a - d_b).
 
+#[must_use]
 pub fn clip_triangle_w_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - 0.001)
 }
 
+#[must_use]
 pub fn clip_triangle_x_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.x + v.w)
 }
 
+#[must_use]
 pub fn clip_triangle_y_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.y + v.w)
 }
 
+#[must_use]
 pub fn clip_triangle_z_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.z)
 }
 
+#[must_use]
 pub fn clip_triangle_nx_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.x)
 }
 
+#[must_use]
 pub fn clip_triangle_ny_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.y)
 }
 
+#[must_use]
 pub fn clip_triangle_nz_axis(triangle: Triangle) -> TriangleClipResult {
     clip_triangle_on_plane(triangle, |v| v.w - v.z)
 }
 
+#[allow(clippy::similar_names)]
 fn clip_triangle_on_plane<F>(triangle: Triangle, signed_distance: F) -> TriangleClipResult
 where
     F: Fn(&Vec4) -> f32,
@@ -49,6 +56,7 @@ where
     let mut outside_count = 0_usize;
     let mut distances = [0.0_f32; 3];
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..3 {
         let distance = signed_distance(&triangle.vertices[i]);
         distances[i] = distance;

@@ -22,7 +22,7 @@ pub struct Triangle {
     pub color: Color,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct TriangleScreenPixel {
     pub x: f32,
     pub y: f32,
@@ -31,57 +31,18 @@ pub struct TriangleScreenPixel {
     pub v_divided_w: f32,
 }
 impl TriangleScreenPixel {
+    #[must_use]
     pub fn new() -> Self {
-        Self {
-            x: 0.0,
-            y: 0.0,
-            reciprocal_w: 0.0,
-            u_divided_w: 0.0,
-            v_divided_w: 0.0,
-        }
-    }
-    pub fn from_vec4(x: f32, vec4: Vec4) -> Self {
-        Self {
-            x,
-            y: vec4.x,
-            reciprocal_w: vec4.y,
-            u_divided_w: vec4.z,
-            v_divided_w: vec4.w,
-        }
-    }
-}
-
-impl Default for TriangleScreenPixel {
-    fn default() -> Self {
-        Self::new()
+        Self::default()
     }
 }
 
 impl Triangle {
-    // triangle contructor with only three Vec4 vertices and white color
-    pub fn from_vertices(vertices: [Vec4; 3]) -> Self {
-        // get vec3 from vertices and calculate normal
-        let v1 = Vec3::new(vertices[0].x, vertices[0].y, vertices[0].z);
-        let v2 = Vec3::new(vertices[1].x, vertices[1].y, vertices[1].z);
-        let v3 = Vec3::new(vertices[2].x, vertices[2].y, vertices[2].z);
-        let normal = (v2 - v1).cross(v3 - v1).normalize();
-        // calculate center of the triangle
-        let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
-        //
-        Self {
-            vertices,
-            center,
-            uvs: [Vec2::ZERO; 3],
-            normal,
-            color: Color::WHITE,
-        }
-    }
-    // triangle contructor with only three Vec4 vertices and uvs. No normal calculated
+    // triangle constructor with only three Vec4 vertices and uvs. No normal calculated
+    #[must_use]
     pub fn from_vertices_uv(vertices: [Vec4; 3], uvs: [Vec2; 3]) -> Self {
         let normal = Vec3::ZERO;
-        // calculate center of the triangle
         let center = (vertices[0] + vertices[1] + vertices[2]) / 3.0;
-        //
         Self {
             vertices,
             center,
@@ -91,6 +52,7 @@ impl Triangle {
         }
     }
     // triangle constructor with three Vec4 vertices, three Vec2 uvs, Vec3 normal, and Color color
+    #[must_use]
     pub fn from_vertices_uvs_normal_color(
         vertices: [Vec4; 3],
         uvs: [Vec2; 3],
@@ -107,6 +69,7 @@ impl Triangle {
         }
     }
     // triangle constructor "new". No parameters. Returns a triangle with all zeros
+    #[must_use]
     pub fn new() -> Self {
         Self {
             vertices: [Vec4::ZERO; 3],
@@ -114,33 +77,6 @@ impl Triangle {
             uvs: [Vec2::ZERO; 3],
             normal: Vec3::ZERO,
             color: Color::WHITE,
-        }
-    }
-
-    pub(crate) fn from_vertices_color(screen_vertex3: [Vec4; 3], color: Color) -> Triangle {
-        let v1 = Vec3::new(
-            screen_vertex3[0].x,
-            screen_vertex3[0].y,
-            screen_vertex3[0].z,
-        );
-        let v2 = Vec3::new(
-            screen_vertex3[1].x,
-            screen_vertex3[1].y,
-            screen_vertex3[1].z,
-        );
-        let v3 = Vec3::new(
-            screen_vertex3[2].x,
-            screen_vertex3[2].y,
-            screen_vertex3[2].z,
-        );
-        let normal = (v2 - v1).cross(v3 - v1).normalize();
-        let center = (screen_vertex3[0] + screen_vertex3[1] + screen_vertex3[2]) / 3.0;
-        Self {
-            vertices: screen_vertex3,
-            center,
-            uvs: [Vec2::ZERO; 3],
-            normal,
-            color,
         }
     }
 

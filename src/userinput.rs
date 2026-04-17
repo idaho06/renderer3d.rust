@@ -28,6 +28,7 @@ impl Default for UserInput {
 }
 
 impl UserInput {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             quit: false,

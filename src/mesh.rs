@@ -1,202 +1,253 @@
-// this module defines the struct mesh,
-// which contains Vec of Vec3 for the vertices,
-// Vec of Vec2 for the uvs,
-// Vec of Vec3 for the normals,
-// a buffer of bytes for the color texture,
-// a Vec3 for the position,
-// a Vec3 for the rotation,
-// and a Vec3 for the scale
+use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 
-use crate::triangle::Face;
-use glam::{Vec2, Vec3};
-use sdl2::pixels::Color;
-//use sdl2::pixels::Color;
+use crate::{
+    camera::Camera,
+    clipping::{
+        TriangleClipResult, clip_triangle_nx_axis, clip_triangle_ny_axis, clip_triangle_nz_axis,
+        clip_triangle_w_axis, clip_triangle_x_axis, clip_triangle_y_axis, clip_triangle_z_axis,
+    },
+    display::Display,
+    framebuffer::Framebuffer,
+    model::Model,
+    render,
+    scene::Scene,
+    triangle::Triangle,
+};
+
+static CLIP_PLANES: [fn(Triangle) -> TriangleClipResult; 7] = [
+    clip_triangle_w_axis,
+    clip_triangle_x_axis,
+    clip_triangle_y_axis,
+    clip_triangle_z_axis,
+    clip_triangle_nx_axis,
+    clip_triangle_ny_axis,
+    clip_triangle_nz_axis,
+];
+
+const CLIP_BUFFER_CAPACITY: usize = 128;
+
+pub enum ModelSource {
+    BuiltinCube,
+    Obj { obj_path: String, png_path: String },
+}
 
 pub struct Mesh {
-    pub vertices: Vec<Vec3>,
-    pub uvs: Vec<Vec2>,
-    pub normals: Vec<Vec3>,
-    pub faces: Vec<Face>,
-    pub texture: Option<Box<[u8]>>,
-    pub texture_width: u32,
-    pub texture_height: u32,
-    pub position: Vec3,
-    pub rotation: Vec3,
-    pub scale: Vec3,
+    model: Model,
+    camera: Camera,
+    framebuffer: Framebuffer,
+    transformed_triangles: Vec<Triangle>,
+    projected_triangles: Vec<Triangle>,
+    screen_triangles: Vec<Triangle>,
+    clip_buffer_ping: Vec<Triangle>,
+    clip_buffer_pong: Vec<Triangle>,
+    light_dir: Vec3,
+    now_time: u32,
 }
 
 impl Mesh {
-    pub fn new() -> Self {
-        let vertices = Vec::new();
-        let uvs = Vec::new();
-        let normals = Vec::new();
-        let faces = Vec::new();
-        let texture = None;
-        let texture_width = 0_u32;
-        let texture_height = 0_u32;
-        let position = Vec3::new(0.0, 0.0, 0.0);
-        let rotation = Vec3::new(0.0, 0.0, 0.0);
-        let scale = Vec3::new(1.0, 1.0, 1.0);
+    pub fn new(display: &mut Display, source: ModelSource) -> Self {
+        let model = match source {
+            ModelSource::BuiltinCube => Model::builtin_cube(),
+            ModelSource::Obj { obj_path, png_path } => {
+                Model::from_obj_and_png(&obj_path, &png_path)
+            }
+        };
+
+        let face_count = model.faces.len();
+        let width = 640 * 2;
+        let height = 360 * 2;
+        display.add_streaming_buffer("cube", width, height);
+
+        let camera = Camera::new(Vec3::new(0.0, 25.0, 55.0), Vec3::ZERO);
+
         Self {
-            vertices,
-            uvs,
-            normals,
-            faces,
-            texture,
-            texture_width,
-            texture_height,
-            position,
-            rotation,
-            scale,
+            transformed_triangles: Vec::with_capacity(face_count),
+            projected_triangles: Vec::with_capacity(face_count),
+            screen_triangles: Vec::with_capacity(face_count * 2),
+            clip_buffer_ping: Vec::with_capacity(CLIP_BUFFER_CAPACITY),
+            clip_buffer_pong: Vec::with_capacity(CLIP_BUFFER_CAPACITY),
+            framebuffer: Framebuffer::new(width, height),
+            model,
+            camera,
+            light_dir: Vec3::new(1.0, -1.0, 1.0).normalize(),
+            now_time: 0,
         }
     }
 
-    // open obj file and load the vertices, uvs, normals, and faces
-    // open image file and load the texture
-    pub(crate) fn load_obj(&mut self, obj_file: &str, image_file: &str) {
-        // we assume there is only one mesh per obj file
-        // we assume the obj file is well formed
-        // we assume the obj faces are triangles or quads
-        // we assume the obj file has vertices, uvs, normals, and faces
+    fn run_input(&mut self, display: &Display, dt: u32) {
+        self.camera.update(&display.user_input, dt);
+    }
 
-        // open the obj file and read each line
-        let obj_file = std::fs::read_to_string(obj_file)
-            .unwrap_or_else(|_| panic!("Failed to load object: {obj_file}"));
-        let obj_file = obj_file.lines();
-        // for each line, check if it is a vertex, uv, normal, or face
-        for line in obj_file {
-            // if it is a vertex, add it to the vertices vector
-            if line.starts_with("v ") {
-                let line = line.split_whitespace();
-                let mut line = line.skip(1);
-                let x = line.next().unwrap().parse::<f32>().unwrap();
-                let y = line.next().unwrap().parse::<f32>().unwrap();
-                let z = line.next().unwrap().parse::<f32>().unwrap();
-                self.vertices.push(Vec3::new(x, y, z));
-            }
-            // if it is a uv, add it to the uvs vector
-            if line.starts_with("vt ") {
-                let line = line.split_whitespace();
-                let mut line = line.skip(1);
-                let u = line.next().unwrap().parse::<f32>().unwrap();
-                let v = 1.0 - line.next().unwrap().parse::<f32>().unwrap(); // flip v
-                self.uvs.push(Vec2::new(u, v));
-            }
-            // if it is a normal, add it to the normals vector
-            if line.starts_with("vn ") {
-                let line = line.split_whitespace();
-                let mut line = line.skip(1);
-                let x = line.next().unwrap().parse::<f32>().unwrap();
-                let y = line.next().unwrap().parse::<f32>().unwrap();
-                let z = line.next().unwrap().parse::<f32>().unwrap();
-                self.normals.push(Vec3::new(x, y, z));
-            }
-            // if it is a face, add it to the faces vector
-            if line.starts_with("f ") {
-                let line = line.split_whitespace();
-                let line: Vec<&str> = line.skip(1).collect();
-                // if the face has more than 3 vertices, triangulate it
-                if line.len() > 3 && line.len() < 5 {
-                    // 0   1
-                    // 3   2
+    fn build_matrices(&self, display: &Display) -> (Mat4, Mat4, Mat4) {
+        let rotation_quat = Quat::from_euler(
+            EulerRot::ZYX,
+            self.model.rotation.z,
+            self.model.rotation.y,
+            self.model.rotation.x,
+        );
+        let world_matrix = Mat4::from_scale_rotation_translation(
+            self.model.scale,
+            rotation_quat,
+            self.model.position,
+        );
+        let view_matrix = Mat4::look_at_lh(self.camera.pos, self.camera.target, self.camera.up);
+        let proj_matrix = Mat4::perspective_lh(
+            self.camera.fov,
+            display.get_aspect_ratio(),
+            self.camera.near,
+            self.camera.far,
+        );
+        (world_matrix, view_matrix, proj_matrix)
+    }
 
-                    let mut vertices1 = [0_usize; 3];
-                    let mut uvs1 = [0_usize; 3];
-                    let mut normals1 = [0_usize; 3];
-                    let mut vertices2 = [0_usize; 3];
-                    let mut uvs2 = [0_usize; 3];
-                    let mut normals2 = [0_usize; 3];
-                    let mut line = line.iter();
+    fn transform_to_camera_space(&mut self, world_matrix: Mat4, view_matrix: Mat4) {
+        self.transformed_triangles.clear();
+        let light_dir = self.light_dir;
 
-                    let mut vertex1 = line.next().unwrap().split('/'); // 0
-                    vertices1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
-                    uvs1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
-                    normals1[0] = vertex1.next().unwrap().parse::<usize>().unwrap() - 1;
-                    vertices2[0] = vertices1[0];
-                    uvs2[0] = uvs1[0];
-                    normals2[0] = normals1[0];
+        for face in &self.model.faces {
+            let v = [0, 1, 2].map(|i| {
+                let p = self.model.vertices[face.vertices[i]];
+                view_matrix * world_matrix * Vec4::new(p.x, p.y, p.z, 1.0)
+            });
+            let uvs = [0, 1, 2].map(|i| self.model.uvs[face.uvs[i]]);
 
-                    let mut vertex2 = line.next().unwrap().split('/'); // 1
-                    vertices1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
-                    uvs1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
-                    normals1[1] = vertex2.next().unwrap().parse::<usize>().unwrap() - 1;
+            let normal = {
+                let a = Vec3::new(v[0].x, v[0].y, v[0].z);
+                let b = Vec3::new(v[1].x, v[1].y, v[1].z);
+                let c = Vec3::new(v[2].x, v[2].y, v[2].z);
+                (b - a).cross(c - a).normalize()
+            };
 
-                    let mut vertex3 = line.next().unwrap().split('/'); // 2
-                    vertices1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
-                    uvs1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
-                    normals1[2] = vertex3.next().unwrap().parse::<usize>().unwrap() - 1;
-                    vertices2[1] = vertices1[2];
-                    uvs2[1] = uvs1[2];
-                    normals2[1] = normals1[2];
+            let lit_color = render::calculate_face_color(light_dir, normal, face.color);
+            self.transformed_triangles.push(Triangle::from_vertices_uvs_normal_color(
+                v, uvs, normal, lit_color,
+            ));
+        }
+    }
 
-                    let mut vertex4 = line.next().unwrap().split('/'); // 3
-                    vertices2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
-                    uvs2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
-                    normals2[2] = vertex4.next().unwrap().parse::<usize>().unwrap() - 1;
-                    let normal1 = self.normals[normals1[0]];
-                    let normal2 = self.normals[normals2[0]];
-                    self.faces.push(Face {
-                        vertices: vertices1,
-                        uvs: uvs1,
-                        normals: normals1,
-                        normal: normal1,
-                        color: Color::WHITE,
-                    });
-                    self.faces.push(Face {
-                        vertices: vertices2,
-                        uvs: uvs2,
-                        normals: normals2,
-                        normal: normal2,
-                        color: Color::WHITE,
-                    });
-                } else {
-                    let mut line = line.iter();
-                    let mut vertices = [0_usize; 3];
-                    let mut uvs = [0_usize; 3];
-                    let mut normals = [0_usize; 3];
-                    for i in 0..3 {
-                        let mut face = line.next().unwrap().split('/');
-                        vertices[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
-                        uvs[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
-                        normals[i] = face.next().unwrap().parse::<usize>().unwrap() - 1;
-                    }
-                    let normal = self.normals[normals[0]];
-                    self.faces.push(Face {
-                        vertices,
-                        uvs,
-                        normals,
-                        normal,
-                        color: Color::WHITE,
-                    });
+    fn backface_cull(&mut self) {
+        self.transformed_triangles.retain(Triangle::is_visible);
+    }
+
+    fn project(&mut self, proj_matrix: Mat4) {
+        self.projected_triangles.clear();
+        for tri in &self.transformed_triangles {
+            let v = tri.vertices.map(|v| {
+                let mut p = proj_matrix * v;
+                p.y *= -1.0;
+                p
+            });
+            self.projected_triangles.push(Triangle::from_vertices_uvs_normal_color(
+                v, tri.uvs, tri.normal, tri.color,
+            ));
+        }
+    }
+
+    fn clip_against_frustum(&mut self) {
+        self.screen_triangles.clear();
+        for projected in self.projected_triangles.drain(..) {
+            self.clip_buffer_ping.clear();
+            self.clip_buffer_ping.push(projected);
+
+            let mut survived = true;
+            for &clip_fn in &CLIP_PLANES {
+                if !Self::run_clip_stage(
+                    &mut self.clip_buffer_ping,
+                    &mut self.clip_buffer_pong,
+                    clip_fn,
+                ) {
+                    survived = false;
+                    break;
                 }
+                std::mem::swap(&mut self.clip_buffer_ping, &mut self.clip_buffer_pong);
+            }
+
+            if survived {
+                self.screen_triangles.append(&mut self.clip_buffer_ping);
             }
         }
-        // open the image file and load the texture into a buffer using the image crate
-        let image = image::open(image_file)
-            .unwrap_or_else(|_| panic!("Failed to load texture: {image_file}"))
-            .into_rgba8();
-        let (width, height) = image.dimensions();
-        // get rgba values from the image buffer and put them into a buffer of bytes with the order argb
-        let texture = image.into_raw();
-        let mut texture = texture.into_boxed_slice();
-        for i in 0..texture.len() / 4 {
-            let r = texture[i * 4];
-            let g = texture[i * 4 + 1];
-            let b = texture[i * 4 + 2];
-            let a = texture[i * 4 + 3];
-            texture[i * 4] = b; // b
-            texture[i * 4 + 1] = g; // g
-            texture[i * 4 + 2] = r; // r
-            texture[i * 4 + 3] = a; // a
+    }
+
+    fn perspective_divide_and_map(&mut self) {
+        #[allow(clippy::cast_precision_loss)]
+        let width = self.framebuffer.width as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let height = self.framebuffer.height as f32;
+
+        for tri in &mut self.screen_triangles {
+            for v in &mut tri.vertices {
+                let w = v.w;
+                v.x /= w;
+                v.y /= w;
+                v.z /= w;
+                v.x = (v.x + 1.0) * width / 2.0;
+                v.y = (v.y + 1.0) * height / 2.0;
+            }
         }
-        self.texture = Some(texture);
-        self.texture_width = width;
-        self.texture_height = height;
+    }
+
+    fn rasterize_all(&mut self) {
+        self.framebuffer.clear();
+        let width = self.framebuffer.width;
+        let height = self.framebuffer.height;
+
+        for tri in &self.screen_triangles {
+            if let Some(texture) = &self.model.texture {
+                render::draw_3dtriangle_to_color_buffer(
+                    tri,
+                    &mut self.framebuffer.color_buffer,
+                    width,
+                    height,
+                    texture,
+                    self.model.texture_width,
+                    self.model.texture_height,
+                    &mut self.framebuffer.z_buffer,
+                );
+            } else {
+                render::draw_2dtriangle_to_color_buffer(
+                    tri,
+                    &mut self.framebuffer.color_buffer,
+                    width,
+                    height,
+                );
+            }
+        }
+    }
+
+    fn run_clip_stage(
+        source: &mut Vec<Triangle>,
+        destination: &mut Vec<Triangle>,
+        clip_fn: fn(Triangle) -> TriangleClipResult,
+    ) -> bool {
+        destination.clear();
+        while let Some(triangle) = source.pop() {
+            match clip_fn(triangle) {
+                TriangleClipResult::OneTriangle(t) => destination.push(t),
+                TriangleClipResult::TwoTriangles(t1, t2) => {
+                    destination.push(t1);
+                    destination.push(t2);
+                }
+                TriangleClipResult::NoTriangle => {}
+            }
+        }
+        !destination.is_empty()
     }
 }
 
-impl Default for Mesh {
-    fn default() -> Self {
-        Self::new()
+impl Scene for Mesh {
+    fn update(&mut self, delta_time: u32, display: &Display) {
+        self.now_time += delta_time;
+        self.run_input(display, delta_time);
+        let (world_matrix, view_matrix, proj_matrix) = self.build_matrices(display);
+        self.transform_to_camera_space(world_matrix, view_matrix);
+        self.backface_cull();
+        self.project(proj_matrix);
+        self.clip_against_frustum();
+        self.perspective_divide_and_map();
+        self.rasterize_all();
+    }
+
+    fn render(&self, display: &mut Display) {
+        display.color_buffer_to_canvas("cube", &self.framebuffer.color_buffer);
     }
 }

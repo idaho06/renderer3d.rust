@@ -1,9 +1,12 @@
+pub mod camera;
+pub mod cli;
 pub mod clipping;
-pub mod cube;
 pub mod display;
 pub mod fire;
+pub mod framebuffer;
 pub mod mesh;
-pub mod point;
+pub mod model;
+pub mod pixel;
 pub mod render;
 pub mod scene;
 pub mod triangle;

@@ -11,7 +11,7 @@ use sdl2::{
     video::Window,
 };
 
-use crate::point::Pixel;
+use crate::pixel::Pixel;
 
 extern crate sdl2;
 
@@ -35,53 +35,57 @@ impl Default for Display {
     }
 }
 
+#[derive(Default)]
+pub struct DisplayConfig {
+    pub vsync: bool,
+}
+
+#[allow(clippy::missing_panics_doc)]
 impl Display {
+    #[must_use]
     pub fn new() -> Self {
+        Self::with_config(DisplayConfig::default())
+    }
+
+    /// # Panics
+    /// Panics if SDL2 initialization fails.
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value, clippy::cast_sign_loss, clippy::missing_panics_doc)]
+    pub fn with_config(config: DisplayConfig) -> Self {
         let sdl_context = sdl2::init().unwrap();
         let video_subsystem = sdl_context.video().unwrap();
-        //let timer = sdl_context.timer().unwrap();
 
         let mut dm = sdl2::sys::SDL_DisplayMode {
             format: 0,
             w: 0,
             h: 0,
             refresh_rate: 0,
-            // clippy warning: `0 as *mut _` detected
-            //driverdata: 0 as *mut c_void,
             driverdata: std::ptr::null_mut::<std::ffi::c_void>(),
         };
         unsafe {
-            // clippy warning: casting integer literal to `i32` is unnecessary
-            //SDL_GetCurrentDisplayMode(0 as i32, &mut dm);
-            sdl2::sys::SDL_GetCurrentDisplayMode(0_i32, &mut dm);
+            sdl2::sys::SDL_GetCurrentDisplayMode(0_i32, &raw mut dm);
         }
 
         println!("Current display w: {} h: {}", dm.w, dm.h);
 
-        //dm.w = 640;
-        //dm.h = 360;
+        #[allow(clippy::cast_sign_loss)]
         let w_width: u32 = dm.w as u32;
+        #[allow(clippy::cast_sign_loss)]
         let w_height: u32 = dm.h as u32;
 
         let window = video_subsystem
             .window("Renderer 3D in rust", dm.w as u32, dm.h as u32)
             .position_centered()
-            //.vulkan()
-            //.opengl()
             .borderless()
-            //.fullscreen()
-            //.resizable()
-            //.maximized()
             .build()
             .map_err(|e| e.to_string())
             .unwrap();
 
-        let canvas = window
-            .into_canvas()
-            .accelerated()
-            //.software()
-            //.present_vsync()
-            //.target_texture()
+        let mut canvas_builder = window.into_canvas().accelerated();
+        if config.vsync {
+            canvas_builder = canvas_builder.present_vsync();
+        }
+        let canvas = canvas_builder
             .build()
             .map_err(|e| e.to_string())
             .unwrap();
@@ -108,22 +112,25 @@ impl Display {
     pub fn cls(&mut self) {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
-        //self.canvas.present();
     }
     pub fn present_canvas(&mut self) {
         self.canvas.present();
     }
+    #[must_use]
     pub fn get_event_pump(&self) -> EventPump {
         self.sdl_context.event_pump().unwrap()
     }
 
+    #[must_use]
     pub fn get_frame_time(&self) -> u32 {
         self.sdl_context.timer().unwrap().ticks()
     }
 
+    #[must_use]
     pub fn get_width(&self) -> u32 {
         self.w_width
     }
+    #[must_use]
     pub fn get_height(&self) -> u32 {
         self.w_height
     }
@@ -150,7 +157,6 @@ impl Display {
             let r = color.r;
             let g = color.g;
             let b = color.b;
-            //let color: u32 = pixel.color.to_u32(&pixelformat); //ARGB8888
             let color: u32 = u32::from_be_bytes([a, r, g, b]); //ARGB8888
             streaming_buffer
                 .color_buffer
@@ -189,36 +195,38 @@ impl Display {
         }
     }
 
+    #[allow(
+        clippy::cast_possible_wrap,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_truncation,
+        clippy::many_single_char_names
+    )]
     pub fn put_pixel_queue(&mut self, name: &str, pixel_queue: &[Pixel]) {
-        // replaced "&Vec<Pixel>" with "&[Pixel]" ==> huge performance gain!!
         if let Some(streaming_buffer) = self.streaming_buffers.get_mut(name) {
             let width = streaming_buffer.texture.query().width;
             let height = streaming_buffer.texture.query().height;
-            //let pixelformat =
-            //    PixelFormat::try_from(sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap();
-            pixel_queue.iter().for_each(|pixel| {
+            for pixel in pixel_queue {
                 let x = pixel.x;
                 let y = pixel.y;
-                if x < 0 || x > (width - 1) as i32 || y < 0 || y > (height - 1) as i32 {
-                    //()
-                } else {
+                if x >= 0 && x <= (width - 1) as i32 && y >= 0 && y <= (height - 1) as i32 {
                     let a = pixel.color.a;
                     let r = pixel.color.r;
                     let g = pixel.color.g;
                     let b = pixel.color.b;
-                    //let color: u32 = pixel.color.to_u32(&pixelformat); //ARGB8888
                     let color: u32 = u32::from_be_bytes([a, r, g, b]); //ARGB8888
-                    let offset = ((y * width as i32) + (x)) as usize;
+                    let offset = ((y * width as i32) + x) as usize;
                     let pixel_data_u32 = streaming_buffer
                         .color_buffer
                         .as_mut_slice_of::<u32>()
                         .unwrap();
                     pixel_data_u32[offset] = color;
                 }
-            });
+            }
         }
     }
 
+    #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub(crate) fn get_aspect_ratio(&self) -> f32 {
         self.get_width() as f32 / self.get_height() as f32
     }

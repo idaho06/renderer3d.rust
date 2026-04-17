@@ -3,9 +3,10 @@ use sdl2::pixels::Color;
 
 use crate::{
     display::Display,
-    scene::{Scene, Sequence},
+    scene::Scene,
 };
 
+#[allow(clippy::struct_field_names)]
 pub struct Fire {
     width: u32,
     height: u32,
@@ -132,7 +133,7 @@ impl Fire {
 
 // implement Scene for Fire
 impl Scene for Fire {
-    fn update(&mut self, _t: u32, _display: &Display, _scene: &Option<Sequence>) {
+    fn update(&mut self, _t: u32, _display: &Display) {
         self.seed();
         // update fire_buffer
         self.update_fire_buffer();

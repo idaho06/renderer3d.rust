@@ -17,6 +17,7 @@ impl Default for Pixel {
 }
 
 impl Pixel {
+    #[must_use]
     pub fn new(x: i32, y: i32, color: Color) -> Self {
         Self { x, y, color }
     }

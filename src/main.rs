@@ -1,22 +1,43 @@
-use render3d::{cube::Cube, display::Display, fire::Fire, scene::Scene};
+use clap::Parser;
+use render3d::{
+    cli::CliArgs,
+    display::{Display, DisplayConfig},
+    fire::Fire,
+    mesh::{Mesh, ModelSource},
+    scene::Scene,
+};
 
-fn main() -> Result<(), String> {
+fn main() {
     println!("Renderer 3D, by Idaho06");
 
-    let mut display = Display::new();
+    let args = CliArgs::parse();
+
+    let model_source = if args.model == "builtin" {
+        ModelSource::BuiltinCube
+    } else {
+        let parts: Vec<&str> = args.model.splitn(2, ',').collect();
+        if parts.len() != 2 {
+            eprintln!("--model expects 'builtin' or 'obj_path,png_path'");
+            std::process::exit(1);
+        }
+        ModelSource::Obj {
+            obj_path: parts[0].to_string(),
+            png_path: parts[1].to_string(),
+        }
+    };
+
+    let config = DisplayConfig { vsync: args.vsync };
+    let mut display = Display::with_config(config);
     display.cls();
-    //let mut event_pump = display.get_event_pump();
 
-    //display.cls();
-
-    //let color = Color::RGB(128, 0, 0);
+    let max_frames = args.max_frames();
 
     let mut frame_time: u32;
     let mut last_frame_delta: u32 = 0;
     let mut frame = 0_u32;
 
     let mut fire = Fire::new(&mut display);
-    let mut cube = Cube::new(&mut display);
+    let mut mesh = Mesh::new(&mut display, model_source);
 
     'running: loop {
         frame += 1;
@@ -30,23 +51,32 @@ fn main() -> Result<(), String> {
         if display.user_input.mouse.left.changed && display.user_input.mouse.left.pressed {
             display.switch_relative_mouse_mode();
         }
-        //display.clear_streaming_buffer("fire", color);
-        //display.streaming_buffer_to_canvas("fire");
-        fire.update(last_frame_delta, &display, &None);
-        cube.update(last_frame_delta, &display, &None);
+
+        fire.update(last_frame_delta, &display);
+        mesh.update(last_frame_delta, &display);
         fire.render(&mut display);
-        cube.render(&mut display);
+        mesh.render(&mut display);
         display.present_canvas();
 
         last_frame_delta = display.get_frame_time() - frame_time;
-        if frame > 60 * 25 {
+
+        if let Some(limit) = max_frames
+            && frame > limit
+        {
             break;
         }
     }
 
-    println!("Total frames: {}", frame);
-    println!("Average FPS: {}", frame as f32 / (display.get_frame_time() as f32 / 1000.0));
-    println!("Total time: {} seconds", display.get_frame_time() as f32 / 1000.0);
-
-    Ok(())
+    #[allow(clippy::cast_precision_loss)]
+    {
+        println!("Total frames: {frame}");
+        println!(
+            "Average FPS: {}",
+            frame as f32 / (display.get_frame_time() as f32 / 1000.0)
+        );
+        println!(
+            "Total time: {} seconds",
+            display.get_frame_time() as f32 / 1000.0
+        );
+    }
 }
