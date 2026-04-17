@@ -152,6 +152,8 @@ impl Cube {
 
         let mut mesh = Mesh::new();
         mesh.load_obj("assets/lexus.obj", "assets/lexus.png");
+        mesh.rotation.x = -std::f32::consts::FRAC_PI_2;
+        // mesh.load_obj("assets/crab.obj", "assets/crab.png");
         //let buffer_name = String::from("cube");
         // mesh.vertices = vertices;
         // mesh.uvs = uvs;

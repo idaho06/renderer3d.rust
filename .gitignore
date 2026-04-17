@@ -4,3 +4,6 @@
 /profile
 /flamegraph.svg
 /perf.data*
+/.serena
+/.claude
+/CLAUDE.md

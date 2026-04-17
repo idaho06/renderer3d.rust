@@ -1,6 +1,6 @@
 [package]
 name = "render3d"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,6 +12,7 @@ rustc-hash = "2"      # fast hashing
 fastrand = "2" # fast random numbers
 glam = "0.32"    # algebra library
 #smallvec = "1.10.0" # small vectors in stack
+clap = { version = "4", features = ["derive"] }
 
 [dependencies.image]
 version = "0.25"
@@ -32,3 +33,10 @@ debug = true
 #debug-assertions = false
 codegen-units = 1
 #panic = "abort"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "rasterizer"
+harness = false

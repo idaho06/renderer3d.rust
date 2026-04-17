@@ -1,0 +1,10 @@
+[book]
+title = "Software Renderer — A Learning Story"
+authors = ["César Rodríguez"]
+description = "Build a CPU software rasterizer in Rust from scratch, chapter by chapter."
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/idaho06/renderer3d.rust"
