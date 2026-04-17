@@ -76,3 +76,59 @@ pub fn map_interpolate_int(i0: i32, d0: i32, i1: i32, d1: i32) -> Vec<(i32, i32)
     }
     values
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::Vec4;
+
+    const EPS: f32 = 1e-5;
+
+    // ── map_interpolate_float_vec4_iter ──────────────────────────────────────
+
+    #[test]
+    fn midpoint_is_lerp_half() {
+        let d0 = Vec4::new(0.0, 0.0, 0.0, 0.0);
+        let d1 = Vec4::new(4.0, 8.0, 2.0, 1.0);
+        let vals: Vec<_> = map_interpolate_float_vec4_iter(0.0, d0, 4.0, d1).collect();
+        // i steps 0, 1, 2, 3, 4 → 5 values; midpoint is index 2 (i=2.0)
+        assert_eq!(vals.len(), 5);
+        let (i_mid, d_mid) = vals[2];
+        assert!((i_mid - 2.0).abs() < EPS);
+        let expected = (d0 + d1) / 2.0;
+        assert!((d_mid - expected).length() < EPS, "midpoint d should be (d0+d1)/2");
+    }
+
+    #[test]
+    fn empty_range_yields_one_value() {
+        let d0 = Vec4::new(1.0, 2.0, 3.0, 4.0);
+        let vals: Vec<_> = map_interpolate_float_vec4_iter(5.0, d0, 5.0, d0).collect();
+        assert_eq!(vals.len(), 1, "equal i0/i1 must yield exactly one element");
+        let (i, d) = vals[0];
+        assert!((i - 5.0).abs() < EPS);
+        assert!((d - d0).length() < EPS);
+    }
+
+    #[test]
+    fn reverse_range_correct_order() {
+        // i0=2, i1=0 → should step 2, 1, 0 (three values in descending order)
+        let d0 = Vec4::new(2.0, 0.0, 0.0, 0.0);
+        let d1 = Vec4::new(0.0, 0.0, 0.0, 0.0);
+        let vals: Vec<_> = map_interpolate_float_vec4_iter(2.0, d0, 0.0, d1).collect();
+        assert_eq!(vals.len(), 3);
+        assert!((vals[0].0 - 2.0).abs() < EPS);
+        assert!((vals[1].0 - 1.0).abs() < EPS);
+        assert!((vals[2].0 - 0.0).abs() < EPS);
+    }
+
+    #[test]
+    fn reverse_range_midpoint() {
+        let d0 = Vec4::new(8.0, 0.0, 0.0, 0.0);
+        let d1 = Vec4::new(0.0, 0.0, 0.0, 0.0);
+        let vals: Vec<_> = map_interpolate_float_vec4_iter(2.0, d0, 0.0, d1).collect();
+        // middle step is i=1 (index 1); d should be midpoint (4,0,0,0)
+        let (_, d_mid) = vals[1];
+        let expected = (d0 + d1) / 2.0;
+        assert!((d_mid - expected).length() < EPS, "reverse midpoint d should be (d0+d1)/2");
+    }
+}

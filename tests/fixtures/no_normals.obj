@@ -1,0 +1,10 @@
+# Triangle without normal vectors — uses v/vt face format (no normal index).
+# The parser expects v/vt/vn and panics when the normal index token is missing.
+# This file documents the assumption: all OBJ files must include vertex normals.
+v  0.0  0.0  0.0
+v  1.0  0.0  0.0
+v  0.5  1.0  0.0
+vt 0.0  0.0
+vt 1.0  0.0
+vt 0.5  1.0
+f  1/1 2/2 3/3

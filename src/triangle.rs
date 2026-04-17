@@ -143,3 +143,114 @@ impl Default for Triangle {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::{Vec2, Vec3, Vec4};
+    use sdl2::pixels::Color;
+
+    fn make_tri(verts: [Vec4; 3], uvs: [Vec2; 3], normal: Vec3) -> Triangle {
+        Triangle::from_vertices_uvs_normal_color(verts, uvs, normal, Color::WHITE)
+    }
+
+    // ── is_visible ───────────────────────────────────────────────────────────
+    //
+    // In view space the camera sits at the origin.
+    // `camera_to_triangle = ZERO - center` (vector from triangle toward camera).
+    // A face is visible when `normal · camera_to_triangle > 0`.
+
+    #[test]
+    fn is_visible_front_facing() {
+        // Normal points toward camera (-Z); triangle is in front (+Z).
+        // dot((0,0,-1), (0,0,-1)) = 1 > 0 → visible.
+        let tri = make_tri(
+            [Vec4::new(0.0, 0.0, 1.0, 1.0); 3],
+            [Vec2::ZERO; 3],
+            Vec3::new(0.0, 0.0, -1.0),
+        );
+        assert!(tri.is_visible());
+    }
+
+    #[test]
+    fn is_visible_back_facing() {
+        // Normal points away from camera (+Z).
+        // dot((0,0,1), (0,0,-1)) = -1 ≤ 0 → not visible.
+        let tri = make_tri(
+            [Vec4::new(0.0, 0.0, 1.0, 1.0); 3],
+            [Vec2::ZERO; 3],
+            Vec3::new(0.0, 0.0, 1.0),
+        );
+        assert!(!tri.is_visible());
+    }
+
+    #[test]
+    fn is_visible_edge_on() {
+        // Normal is perpendicular to view direction → dot == 0, not > 0 → not visible.
+        let tri = make_tri(
+            [Vec4::new(0.0, 0.0, 1.0, 1.0); 3],
+            [Vec2::ZERO; 3],
+            Vec3::new(1.0, 0.0, 0.0),
+        );
+        assert!(!tri.is_visible());
+    }
+
+    // ── reorder_vertices_by_y ────────────────────────────────────────────────
+
+    fn tri_with_y(y0: f32, y1: f32, y2: f32) -> Triangle {
+        make_tri(
+            [
+                Vec4::new(0.0, y0, 0.0, 1.0),
+                Vec4::new(1.0, y1, 0.0, 1.0),
+                Vec4::new(2.0, y2, 0.0, 1.0),
+            ],
+            [
+                Vec2::new(0.0, y0),
+                Vec2::new(1.0, y1),
+                Vec2::new(2.0, y2),
+            ],
+            Vec3::Z,
+        )
+    }
+
+    fn sorted_ys(tri: &Triangle) -> [f32; 3] {
+        [tri.vertices[0].y, tri.vertices[1].y, tri.vertices[2].y]
+    }
+
+    #[test]
+    fn reorder_already_sorted() {
+        let t = tri_with_y(0.0, 1.0, 2.0).reorder_vertices_by_y();
+        assert_eq!(sorted_ys(&t), [0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn reorder_reversed() {
+        let t = tri_with_y(2.0, 1.0, 0.0).reorder_vertices_by_y();
+        assert_eq!(sorted_ys(&t), [0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn reorder_partial() {
+        let t = tri_with_y(1.0, 0.0, 2.0).reorder_vertices_by_y();
+        assert_eq!(sorted_ys(&t), [0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn reorder_duplicate_y() {
+        let t = tri_with_y(1.0, 0.0, 1.0).reorder_vertices_by_y();
+        assert_eq!(sorted_ys(&t), [0.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn reorder_uvs_follow_vertices() {
+        // Each UV's x encodes the original vertex slot (0.0, 1.0, 2.0).
+        // After reordering by Y the UV must travel with its vertex.
+        let t = tri_with_y(2.0, 0.0, 1.0).reorder_vertices_by_y();
+        for i in 0..3 {
+            assert!(
+                (t.uvs[i].x - t.vertices[i].x).abs() < 1e-5,
+                "UV[{i}].x should match vertex[{i}].x after reorder"
+            );
+        }
+    }
+}
