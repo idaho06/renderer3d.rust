@@ -8,7 +8,7 @@
 
 use clap::Parser;
 use render3d::{
-    cli::CliArgs,
+    cli::{CliArgs, ModelPreset},
     display::{Display, DisplayConfig},
     fire::Fire,
     mesh::{Mesh, ModelSource},
@@ -20,21 +20,23 @@ fn main() {
 
     let args = CliArgs::parse();
 
-    let model_source = if args.model == "builtin" {
-        ModelSource::BuiltinCube
-    } else {
-        let parts: Vec<&str> = args.model.splitn(2, ',').collect();
-        if parts.len() != 2 {
-            eprintln!("--model expects 'builtin' or 'obj_path,png_path'");
-            std::process::exit(1);
-        }
-        ModelSource::Obj {
-            obj_path: parts[0].to_string(),
-            png_path: parts[1].to_string(),
-        }
+    let model_source = match args.model {
+        ModelPreset::Builtin => ModelSource::BuiltinCube,
+        ModelPreset::Lexus => ModelSource::Obj {
+            obj_path: "assets/lexus.obj".to_string(),
+            png_path: "assets/lexus.png".to_string(),
+        },
+        ModelPreset::Crab => ModelSource::Obj {
+            obj_path: "assets/crab.obj".to_string(),
+            png_path: "assets/crab.png".to_string(),
+        },
+        ModelPreset::Cube => ModelSource::Obj {
+            obj_path: "assets/cube.obj".to_string(),
+            png_path: "assets/cube.png".to_string(),
+        },
     };
 
-    let config = DisplayConfig { vsync: args.vsync };
+    let config = DisplayConfig { vsync: args.vsync() };
     let mut display = Display::with_config(config);
     display.cls();
 
